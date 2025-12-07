@@ -1,14 +1,18 @@
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, Marker } from 'react-leaflet';
-import { FishFarm, calculateRiskScore, getRiskLevel, getRiskColor } from '@/lib/data';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, Marker, Polyline } from 'react-leaflet';
+import { FishFarm, Vessel, calculateRiskScore, getRiskLevel, getRiskColor } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import { divIcon } from 'leaflet';
+import { Ship, AlertTriangle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface RiskMapProps {
   farms: FishFarm[];
+  vessels: Vessel[];
   selectedPo: string | null;
 }
 
-export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
+export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
+  const mapRef = useRef<L.Map>(null);
   const centerPosition: [number, number] = [65.0, 13.0]; // Center of Norway-ish
   const zoom = 5;
 
@@ -16,10 +20,33 @@ export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
   const displayFarms = selectedPo 
     ? farms.filter(f => f.po.toString() === selectedPo)
     : farms;
+    
+  // Filter vessels based on view (simplified: showing all for now, could filter by bounds)
+  const displayVessels = vessels;
+
+  // Auto-zoom to bounds when PO selected
+  useEffect(() => {
+    if (selectedPo && displayFarms.length > 0 && mapRef.current) {
+      const lats = displayFarms.map(f => f.lat);
+      const lngs = displayFarms.map(f => f.lng);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      
+      mapRef.current.flyToBounds([
+        [minLat - 0.5, minLng - 0.5],
+        [maxLat + 0.5, maxLng + 0.5]
+      ], { padding: [50, 50], duration: 1.5 });
+    } else if (selectedPo === "all" && mapRef.current) {
+      mapRef.current.flyTo(centerPosition, zoom, { duration: 1.5 });
+    }
+  }, [selectedPo, displayFarms]);
 
   return (
     <Card className="h-[600px] w-full overflow-hidden border-0 shadow-lg relative z-0">
       <MapContainer 
+        ref={mapRef}
         center={centerPosition} 
         zoom={zoom} 
         scrollWheelZoom={true} 
@@ -30,6 +57,43 @@ export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         
+        {/* Vessels Layer */}
+        {displayVessels.map(vessel => (
+          <Marker
+            key={vessel.id}
+            position={[vessel.lat, vessel.lng]}
+            icon={divIcon({
+              className: 'bg-transparent border-none',
+              html: `<div style="transform: rotate(${vessel.heading}deg); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; opacity: 0.9;">
+                       <svg width="20" height="20" viewBox="0 0 24 24" fill="${vessel.passedRiskZone ? '#ef4444' : '#3b82f6'}" stroke="white" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
+                         <path d="M12 2L2 22L12 18L22 22L12 2Z" />
+                       </svg>
+                     </div>`,
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            })}
+          >
+             <Popup>
+               <div className="p-2">
+                 <h3 className="font-bold flex items-center gap-2">
+                    <Ship className="h-4 w-4" /> {vessel.name}
+                 </h3>
+                 <div className="text-xs text-slate-600 mt-1">
+                   Type: {vessel.type}<br/>
+                   Fart: {vessel.speed.toFixed(1)} knop
+                 </div>
+                 {vessel.passedRiskZone && (
+                   <div className="mt-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 p-1 rounded">
+                     ⚠ Har passert rød sone<br/>
+                     Desinfeksjon anbefalt
+                   </div>
+                 )}
+               </div>
+             </Popup>
+          </Marker>
+        ))}
+
+        {/* Farms Layer */}
         {displayFarms.map(farm => {
           const score = calculateRiskScore(farm);
           const level = getRiskLevel(score);
@@ -134,19 +198,19 @@ export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
                 </Tooltip>
               </CircleMarker>
 
-              {/* Current Arrow for High Risk Farms with significant current */}
+              {/* Animated Current Arrow for High Risk Farms */}
               {score > 7 && farm.currentSpeed && farm.currentSpeed > 0.3 && farm.currentDirection && (
                 <Marker
                   position={[farm.lat, farm.lng]}
                   icon={divIcon({
                     className: 'bg-transparent border-none',
-                    html: `<div style="transform: rotate(${farm.currentDirection}deg); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
-                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                               <path d="M12 2L12 19M12 2L5 9M12 2L19 9" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    html: `<div class="animate-pulse" style="transform: rotate(${farm.currentDirection}deg); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                               <path d="M12 2L12 19M12 2L5 9M12 2L19 9" stroke="#dc2626" stroke-width="${farm.currentSpeed > 0.5 ? '3' : '2'}" stroke-linecap="round" stroke-linejoin="round"/>
                              </svg>
                            </div>`,
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12] // Center the rotation
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16] // Center the rotation
                   })}
                   zIndexOffset={100} 
                 />
@@ -158,7 +222,7 @@ export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
       
       {/* Updated Legend Overlay */}
       <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md z-[1000] text-sm border border-slate-200">
-        <h4 className="font-semibold mb-2 text-xs uppercase tracking-wider text-slate-500">Risikonivå</h4>
+        <h4 className="font-semibold mb-2 text-xs uppercase tracking-wider text-slate-500">Risikonivå & Fartøy</h4>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[var(--risk-low)]"></div>
@@ -187,11 +251,13 @@ export default function RiskMap({ farms, selectedPo }: RiskMapProps) {
              <div className="w-3 h-3 rounded-full border-2 border-purple-600"></div>
              <span className="text-xs">Algerisiko</span>
           </div>
-          <div className="flex items-center gap-2">
-             <div className="w-4 h-4 flex items-center justify-center text-red-600 font-bold text-[10px]">
-               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L12 19M12 2L5 9M12 2L19 9"/></svg>
-             </div>
-             <span className="text-xs">Strømretning (Høy risiko)</span>
+           <div className="flex items-center gap-2">
+             <Ship className="h-3 w-3 text-blue-500" />
+             <span className="text-xs">Fartøy (Normal)</span>
+          </div>
+           <div className="flex items-center gap-2">
+             <Ship className="h-3 w-3 text-red-500" />
+             <span className="text-xs">Fartøy (Risiko)</span>
           </div>
         </div>
       </div>

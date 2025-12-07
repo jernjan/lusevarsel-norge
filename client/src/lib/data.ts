@@ -22,6 +22,17 @@ export interface FishFarm {
   inQuarantine?: boolean;
 }
 
+export interface Vessel {
+  id: string;
+  name: string;
+  type: 'Wellboat' | 'Service' | 'Fishing';
+  lat: number;
+  lng: number;
+  heading: number;
+  speed: number;
+  passedRiskZone: boolean; // Has passed red zone last 7 days
+}
+
 export const PRODUCTION_AREAS = Array.from({ length: 13 }, (_, i) => ({
   id: i + 1,
   name: `PO ${i + 1}`,
@@ -84,8 +95,11 @@ const DISEASES = ['PD', 'ILA', 'IPN', null, null, null, null, null];
 
 export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
   const baseLoc = LOCATIONS[i % LOCATIONS.length];
-  const lat = baseLoc.lat + (Math.random() - 0.5) * 0.8;
-  const lng = baseLoc.lng + (Math.random() - 0.5) * 1.5;
+  
+  // Adjusted jitter to place "slightly out to sea" if needed (simulated)
+  // In reality this would be manual adjustment, but here we just ensure randomness
+  const lat = baseLoc.lat + (Math.random() - 0.5) * 1.5;
+  const lng = baseLoc.lng + (Math.random() - 0.5) * 2.5;
   
   const liceCount = Math.random() * 0.8; 
   const temp = 4 + Math.random() * 10;
@@ -130,21 +144,35 @@ export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
   };
 }).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
 
+// Generate mock vessels
+export const mockVessels: Vessel[] = Array.from({ length: 15 }, (_, i) => {
+  // Center vessels roughly around active farm areas
+  const baseLoc = LOCATIONS[i % LOCATIONS.length];
+  
+  return {
+    id: `vessel-${i}`,
+    name: `Vessel ${i + 101}`,
+    type: Math.random() > 0.6 ? 'Wellboat' : Math.random() > 0.5 ? 'Service' : 'Fishing',
+    lat: baseLoc.lat + (Math.random() - 0.5) * 1.0,
+    lng: baseLoc.lng + (Math.random() - 0.5) * 2.0,
+    heading: Math.random() * 360,
+    speed: 5 + Math.random() * 10,
+    passedRiskZone: Math.random() > 0.7, // 30% risk
+  };
+});
+
 // Function to fetch real data with fallback
 export async function getLiceData(): Promise<FishFarm[]> {
   const url = "https://www.barentswatch.no/bwapi/v1/fishhealth/lice";
   
   try {
-    // Note: This might fail due to CORS in a browser environment.
-    // In a real app, this should go through a backend proxy.
-    // For this prototype, we'll try, and if it fails, use mock data.
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     
     const data = await response.json();
     
     return data
-      .filter((item: any) => item.lat && item.lon) // Filter invalid locations
+      .filter((item: any) => item.lat && item.lon)
       .map((item: any) => ({
         id: item.localityNo.toString(),
         name: item.localityName,
@@ -152,12 +180,10 @@ export async function getLiceData(): Promise<FishFarm[]> {
         lat: item.lat,
         lng: item.lon,
         liceCount: item.adultFemaleLice || 0,
-        temp: 9.0, // Hardcoded in Python script as example, we can keep it or randomize slightly
-        salinity: 30, // Default
+        temp: 9.0, 
+        salinity: 30,
         liceIncrease: false,
         highLiceNeighbor: false,
-        
-        // Mocking the extra data for now since we can't easily chain 4 different API calls in a simple prototype without backend
         currentDirection: Math.random() * 360,
         currentSpeed: Math.random() * 0.5,
         chlorophyll: Math.random() * 12,
@@ -170,4 +196,9 @@ export async function getLiceData(): Promise<FishFarm[]> {
     console.warn("API fetch failed or CORS blocked. Using mock data.", error);
     return mockFarms;
   }
+}
+
+export async function getVesselData(): Promise<Vessel[]> {
+  // In a real app this would call BarentsWatch AIS API or similar
+  return new Promise(resolve => setTimeout(() => resolve(mockVessels), 500));
 }

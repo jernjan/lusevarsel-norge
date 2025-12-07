@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
-import { getLiceData, FishFarm, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
+import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
 import RiskMap from '@/components/RiskMap';
 import RiskTable from '@/components/RiskTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw } from 'lucide-react';
+import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw, FileText, Ship } from 'lucide-react';
 
 export default function Dashboard() {
   const [selectedPo, setSelectedPo] = useState<string>("all");
   const [farms, setFarms] = useState<FishFarm[]>([]);
+  const [vessels, setVessels] = useState<Vessel[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -20,8 +21,12 @@ export default function Dashboard() {
 
   async function loadData() {
     setLoading(true);
-    const data = await getLiceData();
-    setFarms(data);
+    const [farmsData, vesselsData] = await Promise.all([
+      getLiceData(),
+      getVesselData()
+    ]);
+    setFarms(farmsData);
+    setVessels(vesselsData);
     setLoading(false);
   }
 
@@ -30,9 +35,10 @@ export default function Dashboard() {
     : farms;
 
   // Calculate high-level stats based on filtered view
-  const highRiskCount = filteredFarms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'high').length;
+  const highRiskCount = filteredFarms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical').length;
   const avgTemp = filteredFarms.reduce((acc, curr) => acc + curr.temp, 0) / (filteredFarms.length || 1);
   const totalAvgLice = filteredFarms.reduce((acc, curr) => acc + curr.liceCount, 0) / (filteredFarms.length || 1);
+  const riskVesselsCount = vessels.filter(v => v.passedRiskZone).length;
 
   const handleSendEmail = () => {
     const currentWeek = 49; // Mock week
@@ -42,6 +48,14 @@ export default function Dashboard() {
       description: `LuseVarsel uke ${currentWeek}: ${highRiskCount} anlegg i rød sone sendt til abonnenter.`,
       duration: 5000,
       className: "bg-green-50 border-green-200 text-green-900",
+    });
+  };
+
+  const handleGenerateReport = () => {
+     toast({
+      title: "Rapport generert",
+      description: "PDF-rapport for uke 49 lastes ned...",
+      duration: 3000,
     });
   };
 
@@ -91,7 +105,7 @@ export default function Dashboard() {
       <main className="container mx-auto px-4 py-8 space-y-8">
         
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-l-4 border-l-[var(--risk-high)]">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -104,6 +118,21 @@ export default function Dashboard() {
                 {loading ? "..." : highRiskCount}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Av {filteredFarms.length} overvåkede anlegg</p>
+            </CardContent>
+          </Card>
+          
+           <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Ship className="h-4 w-4 text-blue-500" />
+                Fartøy i Risiko
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold font-display">
+                {loading ? "..." : riskVesselsCount}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Passert rød sone (7 dager)</p>
             </CardContent>
           </Card>
           
@@ -139,7 +168,11 @@ export default function Dashboard() {
         </div>
 
         {/* Action Bar */}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+           <Button onClick={handleGenerateReport} variant="outline" className="gap-2">
+             <FileText className="h-4 w-4" />
+             Generer PDF-rapport
+           </Button>
            <Button onClick={handleSendEmail} className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-md">
              <Mail className="h-4 w-4" />
              Send Risikorapport (Simulering)
@@ -154,20 +187,20 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                Risikokart
+                Risikokart og Fartøysporing
               </h2>
-              <div className="flex gap-4 text-sm">
+              <div className="flex gap-4 text-sm hidden sm:flex">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[var(--risk-high)]"></div>
-                  <span>Høy (7+)</span>
+                  <span>Kritisk</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[var(--risk-med)]"></div>
-                  <span>Moderat (5-6)</span>
+                  <span>Høy</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[var(--risk-low)]"></div>
-                  <span>Lav (&lt;5)</span>
+                  <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                  <span>Moderat</span>
                 </div>
               </div>
             </div>
@@ -176,7 +209,7 @@ export default function Dashboard() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <RiskMap farms={filteredFarms} selectedPo={selectedPo === "all" ? null : selectedPo} />
+              <RiskMap farms={filteredFarms} vessels={vessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
             )}
           </div>
 
@@ -186,7 +219,7 @@ export default function Dashboard() {
               <h2 className="text-xl font-bold">Topp 20 Risiko</h2>
             </div>
             <CardDescription className="mb-4">
-              Anlegg rangert etter beregnet risikoscore (1-10) basert på lusetall, temperatur og naboeffekter.
+              Oversikt over anlegg med høyest risiko inkludert algevarsel og fartøysrisiko.
             </CardDescription>
             {loading ? (
                <div className="space-y-2">
