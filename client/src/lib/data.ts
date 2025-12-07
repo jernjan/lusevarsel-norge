@@ -11,6 +11,15 @@ export interface FishFarm {
   salinity: number;
   liceIncrease: boolean; // kept for compatibility, but logic updated
   highLiceNeighbor: boolean; // kept for compatibility
+  
+  // New properties for enhancement
+  currentDirection?: number; // degrees
+  currentSpeed?: number; // m/s
+  chlorophyll?: number; // µg/L
+  hasAlgaeRisk?: boolean; // >10 µg/L within 20km
+  forcedSlaughter?: boolean;
+  disease?: 'PD' | 'ILA' | 'IPN' | null;
+  inQuarantine?: boolean;
 }
 
 export const PRODUCTION_AREAS = Array.from({ length: 13 }, (_, i) => ({
@@ -32,18 +41,20 @@ export function calculateRiskScore(farm: FishFarm): number {
   return Math.min(10, Math.max(1, Math.round(score)));
 }
 
-// Logic from Python prototype
-export function getRiskLevel(score: number): 'low' | 'medium' | 'high' {
-  if (score >= 7) return 'high';   // Red
-  if (score >= 5) return 'medium'; // Orange
-  return 'low';                    // Green
+// Updated Logic based on new requirements
+export function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
+  if (score >= 8) return 'critical'; // Red (8-10)
+  if (score >= 6) return 'high';     // Orange (6-7)
+  if (score >= 4) return 'medium';   // Yellow (4-5)
+  return 'low';                      // Green (1-3)
 }
 
-export function getRiskColor(level: 'low' | 'medium' | 'high'): string {
+export function getRiskColor(level: 'low' | 'medium' | 'high' | 'critical'): string {
   switch (level) {
-    case 'low': return 'var(--risk-low)';
-    case 'medium': return 'var(--risk-med)';
-    case 'high': return 'var(--risk-high)';
+    case 'low': return 'var(--risk-low)';        // Green
+    case 'medium': return '#fbbf24';             // Yellow (Tailwind yellow-400)
+    case 'high': return 'var(--risk-med)';       // Orange
+    case 'critical': return 'var(--risk-high)';  // Red
   }
 }
 
@@ -69,6 +80,8 @@ const LOCATIONS = [
   { name: "Øst-Finnmark", lat: 70.5, lng: 29.0, po: 13 },
 ];
 
+const DISEASES = ['PD', 'ILA', 'IPN', null, null, null, null, null];
+
 export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
   const baseLoc = LOCATIONS[i % LOCATIONS.length];
   const lat = baseLoc.lat + (Math.random() - 0.5) * 0.8;
@@ -77,6 +90,23 @@ export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
   const liceCount = Math.random() * 0.8; 
   const temp = 4 + Math.random() * 10;
   
+  // Simulate algae risk (Copernicus mock)
+  const chlorophyll = Math.random() * 15;
+  const hasAlgaeRisk = chlorophyll > 10;
+  
+  // Simulate forced slaughter (Mattilsynet mock)
+  const forcedSlaughter = Math.random() > 0.95;
+  
+  // Simulate disease (BarentsWatch mock)
+  const disease = DISEASES[Math.floor(Math.random() * DISEASES.length)] as any;
+  
+  // Simulate quarantine
+  const inQuarantine = disease === 'ILA' || Math.random() > 0.9;
+  
+  // Simulate current (NorKyst mock)
+  const currentSpeed = Math.random() * 0.8; // m/s
+  const currentDirection = Math.random() * 360; // degrees
+
   return {
     id: `farm-${i}`,
     name: `${FARM_NAMES[i % FARM_NAMES.length]} ${baseLoc.name} ${i + 1}`,
@@ -88,6 +118,15 @@ export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
     salinity: 28 + Math.random() * 7,
     liceIncrease: Math.random() > 0.7,
     highLiceNeighbor: Math.random() > 0.8,
+    
+    // New fields
+    currentDirection,
+    currentSpeed,
+    chlorophyll,
+    hasAlgaeRisk,
+    forcedSlaughter,
+    disease,
+    inQuarantine
   };
 }).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
 
@@ -116,7 +155,16 @@ export async function getLiceData(): Promise<FishFarm[]> {
         temp: 9.0, // Hardcoded in Python script as example, we can keep it or randomize slightly
         salinity: 30, // Default
         liceIncrease: false,
-        highLiceNeighbor: false
+        highLiceNeighbor: false,
+        
+        // Mocking the extra data for now since we can't easily chain 4 different API calls in a simple prototype without backend
+        currentDirection: Math.random() * 360,
+        currentSpeed: Math.random() * 0.5,
+        chlorophyll: Math.random() * 12,
+        hasAlgaeRisk: Math.random() > 0.85,
+        forcedSlaughter: Math.random() > 0.98,
+        disease: Math.random() > 0.9 ? 'PD' : null,
+        inQuarantine: Math.random() > 0.95
       }));
   } catch (error) {
     console.warn("API fetch failed or CORS blocked. Using mock data.", error);

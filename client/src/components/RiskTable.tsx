@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, Thermometer, Droplets, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, Thermometer, AlertTriangle, Droplets, Skull, Biohazard, ShieldAlert } from 'lucide-react';
 
 interface RiskTableProps {
   farms: FishFarm[];
@@ -30,8 +30,8 @@ export default function RiskTable({ farms }: RiskTableProps) {
             <TableHead>PO</TableHead>
             <TableHead className="text-right">Score</TableHead>
             <TableHead className="text-right">Lus</TableHead>
-            <TableHead className="text-right hidden sm:table-cell">Temp</TableHead>
-            <TableHead className="hidden md:table-cell">Varsler</TableHead>
+            <TableHead className="text-center">Alge</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -43,12 +43,19 @@ export default function RiskTable({ farms }: RiskTableProps) {
             return (
               <TableRow key={farm.id} className="group">
                 <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-medium text-foreground">{farm.name}</TableCell>
+                <TableCell className="font-medium text-foreground">
+                  {farm.name}
+                  {farm.disease && (
+                    <span className="ml-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 px-1 rounded">
+                      {farm.disease}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-muted-foreground">PO {farm.po}</TableCell>
                 <TableCell className="text-right">
                   <Badge 
                     variant="outline" 
-                    className="font-mono font-bold border-0 text-white"
+                    className="font-mono font-bold border-0 text-white min-w-[2rem] justify-center"
                     style={{ backgroundColor: color }}
                   >
                     {score}
@@ -57,11 +64,34 @@ export default function RiskTable({ farms }: RiskTableProps) {
                 <TableCell className="text-right font-mono text-slate-600">
                   {farm.liceCount.toFixed(2)}
                 </TableCell>
-                <TableCell className="text-right hidden sm:table-cell font-mono text-slate-600">
-                  {farm.temp.toFixed(1)}°
+                <TableCell className="text-center">
+                  {farm.hasAlgaeRisk ? (
+                     <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 text-[10px] px-1">
+                        Ja
+                     </Badge>
+                  ) : (
+                    <span className="text-slate-300">-</span>
+                  )}
                 </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div className="flex gap-1">
+                <TableCell>
+                  <div className="flex gap-1 flex-wrap">
+                    {farm.forcedSlaughter && (
+                      <Badge variant="destructive" className="text-xs h-5 px-1 bg-black text-white hover:bg-slate-800" title="Tvangsslakting">
+                        <Skull className="h-3 w-3 mr-1" /> Slakt
+                      </Badge>
+                    )}
+                    {farm.inQuarantine && (
+                      <Badge variant="secondary" className="text-xs h-5 px-1 bg-purple-100 text-purple-700 border-purple-200" title="Karantene">
+                        <ShieldAlert className="h-3 w-3" />
+                      </Badge>
+                    )}
+                    {farm.disease && (
+                      <Badge variant="secondary" className="text-xs h-5 px-1 bg-red-100 text-red-700 border-red-200" title={`Sykdom: ${farm.disease}`}>
+                        <Biohazard className="h-3 w-3" />
+                      </Badge>
+                    )}
+                    
+                    {/* Standard Alerts */}
                     {farm.liceIncrease && (
                       <Badge variant="secondary" className="text-xs h-5 px-1 bg-red-50 text-red-600 border-red-100" title="Økning > 30%">
                         <ArrowUpRight className="h-3 w-3" />
@@ -70,11 +100,6 @@ export default function RiskTable({ farms }: RiskTableProps) {
                     {farm.temp > 8 && (
                       <Badge variant="secondary" className="text-xs h-5 px-1 bg-orange-50 text-orange-600 border-orange-100" title="Høy temperatur">
                         <Thermometer className="h-3 w-3" />
-                      </Badge>
-                    )}
-                    {farm.highLiceNeighbor && (
-                      <Badge variant="secondary" className="text-xs h-5 px-1 bg-yellow-50 text-yellow-600 border-yellow-100" title="Nabo med høy lus">
-                        <AlertTriangle className="h-3 w-3" />
                       </Badge>
                     )}
                   </div>
