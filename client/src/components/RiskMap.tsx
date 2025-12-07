@@ -21,8 +21,9 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
     ? farms.filter(f => f.po.toString() === selectedPo)
     : farms;
     
-  // Filter vessels based on view (simplified: showing all for now, could filter by bounds)
-  const displayVessels = vessels;
+  // Smart Filtering for Vessels: Only show those that have passed risk zones (risk relevant)
+  // This keeps the map clean as requested
+  const displayVessels = vessels.filter(v => v.passedRiskZone);
 
   // Auto-zoom to bounds when PO selected
   useEffect(() => {
@@ -57,37 +58,35 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         
-        {/* Vessels Layer */}
+        {/* Vessels Layer - Only Risk Vessels */}
         {displayVessels.map(vessel => (
           <Marker
             key={vessel.id}
             position={[vessel.lat, vessel.lng]}
             icon={divIcon({
               className: 'bg-transparent border-none',
-              html: `<div style="transform: rotate(${vessel.heading}deg); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; opacity: 0.9;">
-                       <svg width="20" height="20" viewBox="0 0 24 24" fill="${vessel.passedRiskZone ? '#ef4444' : '#3b82f6'}" stroke="white" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
+              html: `<div style="transform: rotate(${vessel.heading}deg); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; opacity: 1;">
+                       <svg width="24" height="24" viewBox="0 0 24 24" fill="#ef4444" stroke="white" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg">
                          <path d="M12 2L2 22L12 18L22 22L12 2Z" />
                        </svg>
                      </div>`,
-              iconSize: [20, 20],
-              iconAnchor: [10, 10]
+              iconSize: [24, 24],
+              iconAnchor: [12, 12]
             })}
           >
              <Popup>
                <div className="p-2">
-                 <h3 className="font-bold flex items-center gap-2">
+                 <h3 className="font-bold flex items-center gap-2 text-red-700">
                     <Ship className="h-4 w-4" /> {vessel.name}
                  </h3>
                  <div className="text-xs text-slate-600 mt-1">
                    Type: {vessel.type}<br/>
                    Fart: {vessel.speed.toFixed(1)} knop
                  </div>
-                 {vessel.passedRiskZone && (
-                   <div className="mt-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 p-1 rounded">
-                     ⚠ Har passert rød sone<br/>
-                     Desinfeksjon anbefalt
-                   </div>
-                 )}
+                 <div className="mt-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 p-1 rounded">
+                   ⚠ Har passert rød sone (7 dager)<br/>
+                   Desinfeksjon anbefalt
+                 </div>
                </div>
              </Popup>
           </Marker>
@@ -198,7 +197,7 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
                 </Tooltip>
               </CircleMarker>
 
-              {/* Animated Current Arrow for High Risk Farms */}
+              {/* Smart Filtering: Animated Current Arrow ONLY for High Risk Farms (>7) AND High Current (>0.3) */}
               {score > 7 && farm.currentSpeed && farm.currentSpeed > 0.3 && farm.currentDirection && (
                 <Marker
                   position={[farm.lat, farm.lng]}
@@ -222,7 +221,7 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
       
       {/* Updated Legend Overlay */}
       <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md z-[1000] text-sm border border-slate-200">
-        <h4 className="font-semibold mb-2 text-xs uppercase tracking-wider text-slate-500">Risikonivå & Fartøy</h4>
+        <h4 className="font-semibold mb-2 text-xs uppercase tracking-wider text-slate-500">Tegnforklaring</h4>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[var(--risk-low)]"></div>
@@ -230,11 +229,11 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-            <span>Moderat-Lav (4-5)</span>
+            <span>Moderat (4-5)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[var(--risk-med)]"></div>
-            <span>Moderat-Høy (6-7)</span>
+            <span>Høy (6-7)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[var(--risk-high)]"></div>
@@ -247,17 +246,15 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
              <div className="w-3 h-3 rounded-full border-2 border-black"></div>
              <span className="text-xs">Tvangsslakting</span>
           </div>
-          <div className="flex items-center gap-2">
-             <div className="w-3 h-3 rounded-full border-2 border-purple-600"></div>
-             <span className="text-xs">Algerisiko</span>
-          </div>
-           <div className="flex items-center gap-2">
-             <Ship className="h-3 w-3 text-blue-500" />
-             <span className="text-xs">Fartøy (Normal)</span>
-          </div>
            <div className="flex items-center gap-2">
              <Ship className="h-3 w-3 text-red-500" />
-             <span className="text-xs">Fartøy (Risiko)</span>
+             <span className="text-xs">Fartøy i Rød Sone</span>
+          </div>
+           <div className="flex items-center gap-2">
+             <div className="w-4 h-4 flex items-center justify-center text-red-600 font-bold text-[10px]">
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L12 19M12 2L5 9M12 2L19 9"/></svg>
+             </div>
+             <span className="text-xs">Strøm (Kun Høy Risiko)</span>
           </div>
         </div>
       </div>
