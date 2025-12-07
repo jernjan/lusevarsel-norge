@@ -70,20 +70,30 @@ export function getRiskColor(level: 'low' | 'medium' | 'high' | 'critical'): str
 }
 
 // Auto-offset logic for land-locked markers
-export function applySeaOffset(lat: number, lng: number, direction: number = 0): [number, number] {
-  // Simulate checking bathymetry. In a real app this would query a GIS service.
-  // Here we apply a deterministic small offset based on the coordinate itself to separate stacked points
-  // and push them slightly 'out' based on a heuristic direction (e.g. West/North for Norway coast generally)
+export function applySeaOffset(lat: number, lng: number): [number, number] {
+  // Enhanced auto-offset to push points more aggressively towards open water
+  // We use a simplified model assuming most of Norway's coast faces West/North
   
-  const offsetScale = 0.002; // Approx 200m
+  const offsetScale = 0.005; // ~500m offset (increased from 0.002)
   
-  // Simple heuristic: Most of Norway coast faces West/North-West
-  // We add a bit of randomness seeded by the coordinate itself so it's consistent but varied
-  const seed = (lat + lng) * 1000;
-  const pseudoRandomAngle = (seed % 360) * (Math.PI / 180);
+  // Generate a deterministic but varied direction based on the coordinate hash
+  // This simulates "knowing" the local geography without a GIS server
+  const seed = Math.abs((lat * 1000) + (lng * 1000));
   
-  const dLat = Math.cos(pseudoRandomAngle) * offsetScale;
-  const dLng = Math.sin(pseudoRandomAngle) * offsetScale * 2; // Longitude degrees are narrower at high lat
+  // Bias directions towards West (180-360 degrees) and North (0-90 degrees)
+  // Avoid East/South-East which is typically land for Norway
+  let angle = (seed % 270); // 0 to 270 range
+  
+  // If angle falls in the "land quadrant" (South-East, approx 90-180), flip it
+  if (angle > 90 && angle < 180) {
+    angle += 180;
+  }
+  
+  const angleRad = angle * (Math.PI / 180);
+  
+  const dLat = Math.cos(angleRad) * offsetScale;
+  // Longitude degrees are narrower at high latitude, so we multiply by 2 to get equal visual distance
+  const dLng = Math.sin(angleRad) * offsetScale * 2.5; 
   
   return [lat + dLat, lng + dLng];
 }
@@ -116,13 +126,12 @@ const DISEASES = ['PD', 'ILA', 'IPN', null, null, null, null, null];
 export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
   const baseLoc = LOCATIONS[i % LOCATIONS.length];
   
-  // Adjusted jitter to place "slightly out to sea" if needed (simulated)
-  // In reality this would be manual adjustment, but here we just ensure randomness
-  const lat = baseLoc.lat + (Math.random() - 0.5) * 1.5;
-  const lng = baseLoc.lng + (Math.random() - 0.5) * 2.5;
+  // Randomized spread
+  const rawLat = baseLoc.lat + (Math.random() - 0.5) * 1.5;
+  const rawLng = baseLoc.lng + (Math.random() - 0.5) * 2.5;
   
   // Apply offset logic immediately to mock data too
-  const [offsetLat, offsetLng] = applySeaOffset(lat, lng);
+  const [offsetLat, offsetLng] = applySeaOffset(rawLat, rawLng);
 
   const liceCount = Math.random() * 0.8; 
   const temp = 4 + Math.random() * 10;
@@ -186,17 +195,8 @@ export const mockVessels: Vessel[] = Array.from({ length: 15 }, (_, i) => {
 
 // Function to fetch real data with fallback
 export async function getLiceData(): Promise<FishFarm[]> {
-  // Attempts to fetch from real endpoints, falls back to mock if CORS/Network fails
-  // Endpoints: 
-  // - BarentsWatch Lice: /bwapi/v1/fishhealth/lice
-  // - BarentsWatch Diseases: /bwapi/v1/fishhealth/diseases
-  // - BarentsWatch Measures: /bwapi/v1/fishhealth/localitymeasures
-  
   const endpoints = [
-     "https://www.barentswatch.no/bwapi/v1/fishhealth/lice",
-     // In a real implementation we would fetch these too and merge:
-     // "https://www.barentswatch.no/bwapi/v1/fishhealth/diseases",
-     // "https://www.barentswatch.no/bwapi/v1/fishhealth/localitymeasures" 
+     "https://www.barentswatch.no/bwapi/v1/fishhealth/lice"
   ];
   
   try {
@@ -210,7 +210,7 @@ export async function getLiceData(): Promise<FishFarm[]> {
     return data
       .filter((item: any) => item.lat && item.lon)
       .map((item: any) => {
-          // Apply sea offset to real data too
+          // Apply enhanced sea offset to real data
           const [offsetLat, offsetLng] = applySeaOffset(item.lat, item.lon);
           
           return {

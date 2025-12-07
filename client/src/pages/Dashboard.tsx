@@ -65,12 +65,12 @@ export default function Dashboard() {
       <header className="bg-white border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 h-9 w-9 rounded-lg flex items-center justify-center text-white shadow-sm">
-              <Fish className="h-5 w-5 fill-current" />
+            <div className="bg-blue-600 h-9 w-9 rounded-lg flex items-center justify-center text-white shadow-sm shadow-blue-200">
+              <span className="text-xl">🐟</span>
             </div>
             <div>
-               <h1 className="text-xl font-display font-bold text-slate-900 leading-none">LuseVarsel Norge</h1>
-               <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Profesjonell Overvåkning</span>
+               <h1 className="text-xl font-display font-bold text-slate-900 leading-none tracking-tight">LuseVarsel Norge</h1>
+               <span className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Profesjonell Overvåking</span>
             </div>
           </div>
           
@@ -172,11 +172,11 @@ export default function Dashboard() {
 
         {/* Action Bar */}
         <div className="flex justify-end gap-3">
-           <Button onClick={handleGenerateReport} variant="outline" className="gap-2 bg-white hover:bg-slate-50 border-slate-300 text-slate-700">
+           <Button onClick={handleGenerateReport} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
              <FileText className="h-4 w-4" />
              Generer PDF-rapport (Uke 49)
            </Button>
-           <Button onClick={handleSendEmail} className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-md">
+           <Button onClick={handleSendEmail} variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
              <Mail className="h-4 w-4" />
              Send Risikovarsel
            </Button>
