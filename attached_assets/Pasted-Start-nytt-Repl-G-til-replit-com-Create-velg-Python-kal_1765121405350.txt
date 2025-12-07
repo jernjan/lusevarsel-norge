@@ -1,0 +1,102 @@
+Start nytt Repl
+Gå til replit.com → «+ Create» → velg Python → kall det «LuseVarsel»
+Erstatt alt i main.py med koden under (kopier hele blokken)
+
+Python# main.py – LuseVarsel Norge v1 – fungerer direkte i Replit
+import streamlit as st
+import requests
+import pandas as pd
+import folium
+from streamlit_folium import st_folium
+from datetime import datetime
+import time
+import os
+
+st.set_page_config(page_title="LuseVarsel Norge", layout="wide")
+st.title("LuseVarsel Norge – Prototype v1")
+
+# ——————— 1. HENT DATA ———————
+@st.cache_data(ttl=3600)  # Oppdaterer max hver time
+def hent_lusedata():
+    # Ekte BarentsWatch-endpoint (offentlig, ingen nøkkel nødvendig)
+    url = "https://www.barentswatch.no/bwapi/v1/fishhealth/lice"
+    try:
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        df = pd.DataFrame(data)
+        # Velg kun relevante kolonner
+        df = df[['localityNo', 'localityName', 'adultFemaleLice', 'lat', 'lon', 'productionAreaId']]
+        df = df.dropna(subset=['lat', 'lon'])
+        return df
+    except:
+        # Sample-data hvis API er nede
+        st.warning("Bruker eksempeldata (API nede)")
+        return pd.DataFrame({
+            'localityNo': [1001, 1002, 1003, 1004, 1005],
+            'localityName': ['Testanlegg A', 'B', 'C', 'D', 'E'],
+            'adultFemaleLice': [0.12, 0.68, 0.95, 0.34, 0.07],
+            'lat': [60.1, 60.15, 60.2, 60.25, 60.3],
+            'lon': [5.1, 5.12, 5.15, 5.18, 5.2],
+            'productionAreaId': [3, 3, 3, 4, 12]
+        })
+
+df = hent_lusedata()
+
+# ——————— 2. BEREGN RISIKOSCORE ———————
+def kalkuler_score(row):
+    score = row['adultFemaleLice'] * 10
+    # Ekstra poeng for temperatur (hardkodet nå – erstatt med Frost senere)
+    temp = 9.0  # eksempel
+    if temp > 8: score += 2
+    if row['adultFemaleLice'] > 0.5: score += 2
+    return min(max(int(round(score)), 1), 10)
+
+df['score'] = df.apply(kalkuler_score, axis=1)
+df['farge'] = df['score'].apply(lambda x: 'red' if x >= 7 else 'orange' if x >= 5 else 'green')
+
+# ——————— 3. FILTER & VIS ———————
+po_valg = st.selectbox("Produksjonsområde", sorted(df['productionAreaId'].unique()))
+df_vis = df[df['productionAreaId'] == po_valg]
+
+st.subheader(f"PO {po_valg} – {len(df_vis)} anlegg – {len(df_vis[df_vis['score']>=7])} i rød sone")
+
+# Kart
+m = folium.Map(location=[65, 8], zoom_start=5)
+for _, r in df_vis.iterrows():
+    folium.CircleMarker(
+        location=[r['lat'], r['lon']],
+        radius=6,
+        color=r['farge'],
+        fill=True,
+        popup=f"{r['localityName']}<br>Score: {r['score']}<br>Voksne hunnlus: {r['adultFemaleLice']:.3f}"
+    ).add_to(m)
+
+st_folium(m, width=800, height=500)
+
+# Toppliste
+st.subheader("Topp 20 mest utsatte anlegg")
+top20 = df_vis.nlargest(20, 'score')[['localityName', 'localityNo', 'adultFemaleLice', 'score']]
+st.dataframe(top20, use_container_width=True)
+
+# ——————— 4. E-POST-KNAPP (test) ———————
+if st.button("Send test-e-post (mandagssimulering)"):
+    røde = len(df_vis[df_vis['score']>=7])
+    tekst = f"""
+    LuseVarsel uke {datetime.now().isocalendar()[1]}
+    {røde} anlegg i rød sone i PO {po_valg}
+    
+    Se dashboard: {st.session_state.get('url', 'https://lusevarsel.replit.app')}
+    """
+    st.success("E-post klar! (I ekte versjon sendes den med smtplib)")
+
+# ——————— 5. AUTOMATISERING (Replit) ———————
+# Legg dette i .replit-filen for alltid-på (valgfritt)
+st.caption("Kjør nattlig: Legg til cron-job i Shell → `0 3 * * * python main.py`")
+
+Legg til requirements.txt (ny fil i Replit → «Add file» → requirements.txt)
+
+textstreamlit
+folium
+streamlit-folium
+pandas
+requests
