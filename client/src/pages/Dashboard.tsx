@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
+import { useAuth } from '@/context/AuthContext';
 import RiskMap from '@/components/RiskMap';
 import RiskTable from '@/components/RiskTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw, FileText, Ship, Fish } from 'lucide-react';
+import { useNavigate } from 'wouter';
+import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw, FileText, Ship, Fish, LogOut, Settings } from 'lucide-react';
 
 export default function Dashboard() {
   const [selectedPo, setSelectedPo] = useState<string>("all");
@@ -14,6 +16,12 @@ export default function Dashboard() {
   const [vessels, setVessels] = useState<Vessel[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user, logout } = useAuth();
+  const [navigate] = useNavigate();
+
+  // Get user's facilities and vessels
+  const userFacilities = user?.facilities || [];
+  const userVessels = user?.vessels || [];
 
   useEffect(() => {
     loadData();
@@ -34,11 +42,21 @@ export default function Dashboard() {
     ? farms.filter(f => f.po.toString() === selectedPo)
     : farms;
 
+  // Apply user's facility filter if they have set up facilities
+  const userFilteredFarms = userFacilities.length > 0
+    ? filteredFarms.filter(f => userFacilities.includes(parseInt(f.id)))
+    : filteredFarms;
+
+  // Apply user's vessel filter if they have set up vessels
+  const userFilteredVessels = userVessels.length > 0
+    ? vessels.filter(v => userVessels.includes(v.id) || userVessels.includes(v.name))
+    : vessels;
+
   // Calculate high-level stats based on filtered view
-  const highRiskCount = filteredFarms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical').length;
-  const avgTemp = filteredFarms.reduce((acc, curr) => acc + curr.temp, 0) / (filteredFarms.length || 1);
-  const totalAvgLice = filteredFarms.reduce((acc, curr) => acc + curr.liceCount, 0) / (filteredFarms.length || 1);
-  const riskVesselsCount = vessels.filter(v => v.passedRiskZone).length;
+  const highRiskCount = userFilteredFarms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical').length;
+  const avgTemp = userFilteredFarms.reduce((acc, curr) => acc + curr.temp, 0) / (userFilteredFarms.length || 1);
+  const totalAvgLice = userFilteredFarms.reduce((acc, curr) => acc + curr.liceCount, 0) / (userFilteredFarms.length || 1);
+  const riskVesselsCount = userFilteredVessels.filter(v => v.passedRiskZone).length;
 
   const handleSendEmail = () => {
     const currentWeek = 49; // Mock week
@@ -75,6 +93,9 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground hidden md:inline">
+              {user && `${user.company}`}
+            </span>
             <span className="text-sm text-muted-foreground hidden md:inline">Oppdatert: Nå nettopp</span>
             <Button 
               variant="outline" 
@@ -85,6 +106,26 @@ export default function Dashboard() {
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Oppdater
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/setup')}
+              className="hidden sm:flex"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Instillinger
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logg ut
             </Button>
             <div className="w-[180px]">
               <Select value={selectedPo} onValueChange={setSelectedPo}>
@@ -120,7 +161,7 @@ export default function Dashboard() {
               <div className="text-3xl font-bold font-display text-slate-900">
                 {loading ? "..." : highRiskCount}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Av {filteredFarms.length} overvåkede anlegg</p>
+              <p className="text-xs text-muted-foreground mt-1">Av {userFilteredFarms.length} overvåkede anlegg</p>
             </CardContent>
           </Card>
           
@@ -212,7 +253,7 @@ export default function Dashboard() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <RiskMap farms={filteredFarms} vessels={vessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
+              <RiskMap farms={userFilteredFarms} vessels={userFilteredVessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
             )}
           </div>
 
@@ -231,7 +272,7 @@ export default function Dashboard() {
                  ))}
                </div>
             ) : (
-              <RiskTable farms={filteredFarms} />
+              <RiskTable farms={userFilteredFarms} />
             )}
           </div>
 
