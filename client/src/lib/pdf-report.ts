@@ -21,10 +21,10 @@ export async function generatePDFReport(
   // Logo area
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(24);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('Helvetica', 'bold');
   doc.text('🐟 AquaShield', 15, 15);
   doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('Helvetica', 'normal');
   doc.text(TAGLINE, 15, 22);
   
   yPos = 35;
@@ -32,12 +32,12 @@ export async function generatePDFReport(
   // Title and metadata
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(18);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('Helvetica', 'bold');
   doc.text('Risikorapport – Lakselusovervåking', 15, yPos);
   
   yPos += 10;
   doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('Helvetica', 'normal');
   doc.text(`Bedrift: ${companyName}`, 15, yPos);
   yPos += 5;
   doc.text(`Dato: ${date.toLocaleDateString('no-NO')} kl. ${date.toLocaleTimeString('no-NO')}`, 15, yPos);
@@ -49,7 +49,7 @@ export async function generatePDFReport(
   if (mapElement) {
     try {
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('Helvetica', 'bold');
       doc.text('Risikokart – Aktuelle anlegg', 15, yPos);
       yPos += 8;
 
@@ -87,12 +87,12 @@ export async function generatePDFReport(
 
   // Summary statistics
   doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('Helvetica', 'bold');
   doc.text('Oppsummering', 15, yPos);
   yPos += 7;
   
   doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('Helvetica', 'normal');
   
   const criticalCount = farms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical').length;
   const highCount = farms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'high').length;
@@ -116,19 +116,19 @@ export async function generatePDFReport(
 
   // Top 20 risk farms
   doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('Helvetica', 'bold');
   doc.text('Topp 20 anlegg etter risiko', 15, yPos);
   yPos += 7;
 
   doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('Helvetica', 'normal');
   
   const topFarms = farms.slice(0, 20);
   const colX = [15, 60, 100, 130, 160];
   const colWidths = [45, 40, 30, 30, 20];
   
   // Header row
-  doc.setFont(undefined, 'bold');
+  doc.setFont('Helvetica', 'bold');
   doc.setFillColor(230, 230, 230);
   doc.rect(colX[0], yPos - 4, colWidths[0], 5, 'F');
   doc.text('Anlegg', colX[0] + 2, yPos);
@@ -140,7 +140,7 @@ export async function generatePDFReport(
   doc.text('Risiko', colX[3] + 2, yPos);
   
   yPos += 6;
-  doc.setFont(undefined, 'normal');
+  doc.setFont('Helvetica', 'normal');
 
   topFarms.forEach((farm, idx) => {
     if (yPos > pageHeight - 20) {
@@ -166,9 +166,9 @@ export async function generatePDFReport(
     doc.text(`${idx + 1}. ${farm.name.substring(0, 25)}`, colX[0] + 1, yPos);
     doc.text(farm.id, colX[1] + 1, yPos);
     doc.text(`${farm.liceCount.toFixed(2)}`, colX[2] + 1, yPos);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('Helvetica', 'bold');
     doc.text(levelText, colX[3] + 1, yPos);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('Helvetica', 'normal');
 
     yPos += 5;
   });
@@ -187,13 +187,13 @@ export async function generatePDFReport(
     }
 
     doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('Helvetica', 'bold');
     doc.setTextColor(220, 38, 38);
     doc.text('⚠ Viktige varsler', 15, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('Helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
 
     if (forcedSlaughterFarms.length > 0) {

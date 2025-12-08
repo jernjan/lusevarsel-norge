@@ -69,7 +69,7 @@ const Login: React.FC = () => {
                 type="email"
                 placeholder="navn@bedrift.no"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 disabled={loading}
                 className="h-10"
               />
@@ -82,7 +82,7 @@ const Login: React.FC = () => {
                 type="text"
                 placeholder="SalMar AS, Lerøy Seafood, osv."
                 value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCompany(e.target.value)}
                 disabled={loading}
                 className="h-10"
               />
