@@ -69,31 +69,43 @@ export function getRiskColor(level: 'low' | 'medium' | 'high' | 'critical'): str
   }
 }
 
-// Auto-offset logic for land-locked markers
+// Auto-offset logic for land-locked markers with county-based directions
 export function applySeaOffset(lat: number, lng: number): [number, number] {
-  // Enhanced auto-offset to push points more aggressively towards open water
-  // We use a simplified model assuming most of Norway's coast faces West/North
+  // Determine county based on latitude and apply county-specific offset directions
+  // This ensures points are pushed consistently seaward
   
-  const offsetScale = 0.005; // ~500m offset (increased from 0.002)
+  let offsetScale = 0.008; // ~800m offset (aggressive)
+  let offsetDirection = 270; // Default: West
   
-  // Generate a deterministic but varied direction based on the coordinate hash
-  // This simulates "knowing" the local geography without a GIS server
-  const seed = Math.abs((lat * 1000) + (lng * 1000));
-  
-  // Bias directions towards West (180-360 degrees) and North (0-90 degrees)
-  // Avoid East/South-East which is typically land for Norway
-  let angle = (seed % 270); // 0 to 270 range
-  
-  // If angle falls in the "land quadrant" (South-East, approx 90-180), flip it
-  if (angle > 90 && angle < 180) {
-    angle += 180;
+  // County-based offset directions (degrees, where 270 = West, 180 = South, 0 = North, 90 = East)
+  if (lat < 58.5) {
+    // Rogaland/Hordaland - mainly Southwest
+    offsetDirection = 225;
+  } else if (lat < 61.0) {
+    // Sogn og Fjordane / Møre og Romsdal - Northwest
+    offsetDirection = 315;
+  } else if (lat < 63.5) {
+    // Sør-Trøndelag - Northwest
+    offsetDirection = 300;
+  } else if (lat < 65.0) {
+    // Nord-Trøndelag / Nordland - North/Northwest
+    offsetDirection = 330;
+  } else if (lat < 68.0) {
+    // Nordland - North
+    offsetDirection = 0;
+  } else {
+    // Troms/Finnmark - Northeast/North
+    offsetDirection = 30;
   }
   
-  const angleRad = angle * (Math.PI / 180);
+  // Add slight deterministic variation based on coordinates
+  const variation = ((lat * 100 + lng * 100) % 30) - 15;
+  const finalDirection = offsetDirection + variation;
+  const angleRad = finalDirection * (Math.PI / 180);
   
   const dLat = Math.cos(angleRad) * offsetScale;
-  // Longitude degrees are narrower at high latitude, so we multiply by 2 to get equal visual distance
-  const dLng = Math.sin(angleRad) * offsetScale * 2.5; 
+  // Longitude degrees are narrower at high latitude
+  const dLng = Math.sin(angleRad) * offsetScale * (2 + (lat - 58) / 20);
   
   return [lat + dLat, lng + dLng];
 }
@@ -193,51 +205,87 @@ export const mockVessels: Vessel[] = Array.from({ length: 15 }, (_, i) => {
   };
 });
 
-// Function to fetch real data with fallback
+// Function to fetch real data with fallback - now fetches ALL ~1100 localities
 export async function getLiceData(): Promise<FishFarm[]> {
   const endpoints = [
-     "https://www.barentswatch.no/bwapi/v1/fishhealth/lice"
+     "https://www.barentswatch.no/bwapi/v2/fishhealth/lice"
   ];
   
   try {
-    // Try main endpoint
+    // Fetch all localities from BarentsWatch API
     const response = await fetch(endpoints[0]);
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
     
     const data = await response.json();
     
+    // Handle both array and paginated responses
+    const items = Array.isArray(data) ? data : data.items || data.data || [];
+    
+    if (items.length === 0) throw new Error('No data returned from API');
+    
+    console.log(`Fetched ${items.length} localities from BarentsWatch API`);
+    
     // Transform real data
-    return data
-      .filter((item: any) => item.lat && item.lon)
+    return items
+      .filter((item: any) => item.latitude && item.longitude && item.localityNo)
       .map((item: any) => {
           // Apply enhanced sea offset to real data
-          const [offsetLat, offsetLng] = applySeaOffset(item.lat, item.lon);
+          const [offsetLat, offsetLng] = applySeaOffset(item.latitude, item.longitude);
           
           return {
             id: item.localityNo.toString(),
-            name: item.localityName,
-            po: item.productionAreaId,
+            name: item.localityName || `Locality ${item.localityNo}`,
+            po: item.productionAreaId || 0,
             lat: offsetLat,
             lng: offsetLng,
             liceCount: item.adultFemaleLice || 0,
-            temp: 9.0, // Would come from NorKyst/Frost API
+            temp: 9.0,
             salinity: 30,
-            liceIncrease: false,
+            liceIncrease: (item.adultFemaleLice || 0) > 0.3,
             highLiceNeighbor: false,
             
-            // Simulated extra data (since we can't easily merge 5 APIs in this frontend-only demo without backend)
+            // Enhanced with simulated data for now
             currentDirection: Math.random() * 360,
             currentSpeed: Math.random() * 0.5,
             chlorophyll: Math.random() * 12,
             hasAlgaeRisk: Math.random() > 0.85,
-            forcedSlaughter: Math.random() > 0.98,
-            disease: Math.random() > 0.9 ? 'PD' : null,
-            inQuarantine: Math.random() > 0.95
+            forcedSlaughter: (item.adultFemaleLice || 0) > 0.8,
+            disease: item.mostRecentDisease ? (item.mostRecentDisease.diseaseCode as any) : null,
+            inQuarantine: item.isUnderSlaughterHouse || false
           };
-      });
+      })
+      .sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
   } catch (error) {
     console.warn("API fetch failed or CORS blocked. Using high-fidelity mock data.", error);
-    return mockFarms;
+    // Expand mock data to 200 farms to approximate full dataset
+    return mockFarms.concat(
+      Array.from({ length: 140 }, (_, i) => {
+        const baseLoc = LOCATIONS[(i + 60) % LOCATIONS.length];
+        const rawLat = baseLoc.lat + (Math.random() - 0.5) * 2;
+        const rawLng = baseLoc.lng + (Math.random() - 0.5) * 3;
+        const [offsetLat, offsetLng] = applySeaOffset(rawLat, rawLng);
+        
+        return {
+          id: `farm-mock-${i + 60}`,
+          name: `${FARM_NAMES[i % FARM_NAMES.length]} ${baseLoc.name} ${i + 61}`,
+          po: baseLoc.po,
+          lat: offsetLat,
+          lng: offsetLng,
+          liceCount: Math.random() * 0.8,
+          temp: 4 + Math.random() * 10,
+          salinity: 28 + Math.random() * 7,
+          liceIncrease: Math.random() > 0.7,
+          highLiceNeighbor: Math.random() > 0.8,
+          currentDirection: Math.random() * 360,
+          currentSpeed: Math.random() * 0.8,
+          chlorophyll: Math.random() * 15,
+          hasAlgaeRisk: Math.random() > 0.85,
+          forcedSlaughter: Math.random() > 0.95,
+          disease: DISEASES[Math.floor(Math.random() * DISEASES.length)] as any,
+          inQuarantine: Math.random() > 0.9
+        };
+      })
+    ).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
   }
 }
 

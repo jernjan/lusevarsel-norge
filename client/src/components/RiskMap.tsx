@@ -1,9 +1,9 @@
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, Marker, Polyline, GeoJSON } from 'react-leaflet';
 import { FishFarm, Vessel, calculateRiskScore, getRiskLevel, getRiskColor } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import { divIcon } from 'leaflet';
 import { Ship, AlertTriangle } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface RiskMapProps {
   farms: FishFarm[];
@@ -13,13 +13,54 @@ interface RiskMapProps {
 
 export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
   const mapRef = useRef<L.Map>(null);
-  const centerPosition: [number, number] = [65.0, 13.0]; // Center of Norway-ish
+  const centerPosition: [number, number] = [63.5, 12.0]; // Center of Norway
   const zoom = 5;
+  
+  // State for cage visibility toggle and zoom level
+  const [showAllCages, setShowAllCages] = useState(false);
+  const [cagesData, setCagesData] = useState<any>(null);
+  const [zoomLevel, setZoomLevel] = useState(zoom);
 
-  // Filter farms if a PO is selected
-  const displayFarms = selectedPo 
-    ? farms.filter(f => f.po.toString() === selectedPo)
-    : farms;
+  // Fetch cage data from Fiskeridirektoratet
+  useEffect(() => {
+    const fetchCages = async () => {
+      try {
+        const response = await fetch(
+          "https://kart.fiskeridir.no/geoserver/akv/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=akv:merd_posisjon&outputFormat=application/json"
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setCagesData(data);
+        }
+      } catch (error) {
+        console.error("Feil ved henting av merd-data:", error);
+      }
+    };
+    
+    if (showAllCages) {
+      fetchCages();
+    }
+  }, [showAllCages]);
+
+  // Track zoom level for smart filtering
+  const handleZoom = () => {
+    if (mapRef.current) {
+      setZoomLevel(mapRef.current.getZoom());
+    }
+  };
+
+  // Smart filtering: 
+  // - At zoom < 6: only show high-risk farms (score >= 8)
+  // - At zoom >= 6: show all farms
+  // - When PO is explicitly selected: show all farms in that PO
+  const displayFarms = selectedPo && selectedPo !== "all"
+    ? farms.filter(f => f.po.toString() === selectedPo) // Show all for selected PO
+    : zoomLevel >= 6 || selectedPo === "all"
+    ? farms // Show all when zoomed in
+    : farms.filter(f => {
+        const score = calculateRiskScore(f);
+        return score >= 8; // Only high-risk at normal zoom
+      });
     
   // Smart Filtering for Vessels: Only show those that have passed risk zones (risk relevant)
   // This keeps the map clean as requested
@@ -27,7 +68,7 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
 
   // Auto-zoom to bounds when PO selected
   useEffect(() => {
-    if (selectedPo && displayFarms.length > 0 && mapRef.current) {
+    if (selectedPo && selectedPo !== "all" && displayFarms.length > 0 && mapRef.current) {
       const lats = displayFarms.map(f => f.lat);
       const lngs = displayFarms.map(f => f.lng);
       const minLat = Math.min(...lats);
@@ -36,13 +77,13 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
       const maxLng = Math.max(...lngs);
       
       mapRef.current.flyToBounds([
-        [minLat - 0.5, minLng - 0.5],
-        [maxLat + 0.5, maxLng + 0.5]
+        [minLat - 0.3, minLng - 0.3],
+        [maxLat + 0.3, maxLng + 0.3]
       ], { padding: [50, 50], duration: 1.5 });
     } else if (selectedPo === "all" && mapRef.current) {
-      mapRef.current.flyTo(centerPosition, zoom, { duration: 1.5 });
+      mapRef.current.flyTo(centerPosition, 5, { duration: 1.5 });
     }
-  }, [selectedPo, displayFarms]);
+  }, [selectedPo, displayFarms.length]);
 
   return (
     <Card className="h-[600px] w-full overflow-hidden border-0 shadow-lg relative z-0">
@@ -52,11 +93,40 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
         zoom={zoom} 
         scrollWheelZoom={true} 
         className="h-full w-full bg-slate-100"
+        onZoom={handleZoom}
+        onMove={handleZoom}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
+        
+        {/* Cages Layer - Filtert til valgt PO */}
+        {showAllCages && cagesData && selectedPo && (
+          <GeoJSON
+            data={cagesData}
+            pointToLayer={(feature, latlng) => {
+              const isHighRisk = farms
+                .filter(f => f.po.toString() === selectedPo)
+                .map(f => f.id)
+                .includes(feature.properties?.lokalitet_nr);
+              
+              return window.L.circleMarker(latlng, {
+                radius: isHighRisk ? 6 : 3,
+                color: isHighRisk ? '#ef4444' : '#3b82f6',
+                weight: isHighRisk ? 3 : 1,
+                opacity: isHighRisk ? 1 : 0.6,
+                fillOpacity: isHighRisk ? 0.7 : 0.4,
+              });
+            }}
+            onEachFeature={(feature, layer) => {
+              layer.bindPopup(
+                `<div class="text-sm"><strong>Merd ${feature.properties?.merd_nr || 'N/A'}</strong><br/>
+                 Lokalitet: ${feature.properties?.lokalitet_navn || 'N/A'}</div>`
+              );
+            }}
+          />
+        )}
         
         {/* Vessels Layer - Only Risk Vessels */}
         {displayVessels.map(vessel => (
@@ -219,9 +289,33 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
         })}
       </MapContainer>
       
+      {/* Toggle for Cages - Show when data is available */}
+      {cagesData && (
+        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-md z-[1000] border border-slate-200">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input 
+              type="checkbox" 
+              checked={showAllCages} 
+              onChange={(e) => setShowAllCages(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <span className="font-medium">Vis alle merder</span>
+          </label>
+          <p className="text-xs text-slate-500 mt-1">Zoom inn for detaljer</p>
+        </div>
+      )}
+      
       {/* Updated Legend Overlay */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md z-[1000] text-sm border border-slate-200">
+      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-md z-[1000] text-sm border border-slate-200 max-w-xs">
         <h4 className="font-semibold mb-2 text-xs uppercase tracking-wider text-slate-500">Tegnforklaring</h4>
+        
+        {/* Smart filtering note */}
+        {zoomLevel < 6 && selectedPo === "all" && (
+          <div className="text-xs bg-blue-50 text-blue-700 p-1.5 rounded mb-2 border border-blue-200">
+            ℹ Zoom inn for å se alle anlegg. Viser nå kun høyrisiko.
+          </div>
+        )}
+        
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[var(--risk-low)]"></div>
@@ -256,6 +350,20 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
              </div>
              <span className="text-xs">Strøm (Kun Høy Risiko)</span>
           </div>
+          
+          {showAllCages && selectedPo && selectedPo !== "all" && (
+            <>
+              <div className="h-px bg-slate-200 my-2"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                <span className="text-xs">Merd (Høy Risiko)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span className="text-xs">Merd (Lav Risiko)</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </Card>
