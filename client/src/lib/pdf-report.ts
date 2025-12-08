@@ -1,10 +1,12 @@
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { FishFarm, calculateRiskScore, getRiskLevel, getRiskColor } from './data';
 import { COMPANY_NAME, TAGLINE } from './branding';
 
 export async function generatePDFReport(
   farms: FishFarm[],
   companyName: string,
+  mapElement?: HTMLElement,
   date: Date = new Date()
 ): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -42,6 +44,46 @@ export async function generatePDFReport(
   yPos += 5;
   doc.text(`Uke: ${getWeekNumber(date)}`, 15, yPos);
   yPos += 10;
+
+  // Kart-snapshot hvis det finnes
+  if (mapElement) {
+    try {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Risikokart – Aktuelle anlegg', 15, yPos);
+      yPos += 8;
+
+      // Capture map as image
+      const canvas = await html2canvas(mapElement, {
+        allowTaint: true,
+        useCORS: true,
+        backgroundColor: '#f8fafc',
+        scale: 2,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate dimensions to fit page
+      const imgWidth = pageWidth - 30;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Add image if it fits on current page, otherwise new page
+      if (yPos + imgHeight > pageHeight - 20) {
+        doc.addPage();
+        yPos = 10;
+      }
+      
+      doc.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 10;
+    } catch (error) {
+      console.warn('Kunne ikke ta kart-snapshot:', error);
+    }
+  }
+
+  // New page for statistics and table if needed
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 10;
+  }
 
   // Summary statistics
   doc.setFontSize(12);

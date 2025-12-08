@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
 import { useAuth } from '@/context/AuthContext';
 import { generatePDFReport } from '@/lib/pdf-report';
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const [navigate] = useNavigate();
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Get user's facilities and vessels
   const userFacilities = user?.facilities || [];
@@ -74,7 +75,8 @@ export default function Dashboard() {
   const handleGenerateReport = async () => {
     try {
       setGeneratingPDF(true);
-      await generatePDFReport(userFilteredFarms, user?.company || 'Din Bedrift');
+      const mapElement = mapContainerRef.current;
+      await generatePDFReport(userFilteredFarms, user?.company || 'Din Bedrift', mapElement);
       toast({
         title: "✓ Rapport generert",
         description: `PDF-rapport lastet ned for ${user?.company}`,
@@ -283,7 +285,9 @@ export default function Dashboard() {
                 <p className="text-slate-500 text-sm mt-1">Laster lokaliteter og fartøysdata</p>
               </div>
             ) : (
-              <RiskMap farms={userFilteredFarms} vessels={userFilteredVessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
+              <div ref={mapContainerRef}>
+                <RiskMap farms={userFilteredFarms} vessels={userFilteredVessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
+              </div>
             )}
           </div>
 

@@ -13,6 +13,7 @@ interface RiskMapProps {
 
 export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
   const mapRef = useRef<L.Map>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const centerPosition: [number, number] = [63.5, 12.0]; // Center of Norway
   const zoom = 5;
   
@@ -86,7 +87,7 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
   }, [selectedPo, displayFarms.length]);
 
   return (
-    <Card className="h-[600px] w-full overflow-hidden border-0 shadow-lg relative z-0">
+    <Card className="h-[600px] w-full overflow-hidden border-0 shadow-lg relative z-0" ref={mapContainerRef}>
       <MapContainer 
         ref={mapRef}
         center={centerPosition} 
