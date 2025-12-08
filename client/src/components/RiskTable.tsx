@@ -12,9 +12,10 @@ import { ArrowUpRight, Thermometer, AlertTriangle, Droplets, Skull, Biohazard, S
 
 interface RiskTableProps {
   farms: FishFarm[];
+  onFarmClick?: (farm: FishFarm) => void;
 }
 
-export default function RiskTable({ farms }: RiskTableProps) {
+export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
   // Sort by risk score descending and take top 20
   const topRiskyFarms = [...farms]
     .sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a))
@@ -44,7 +45,11 @@ export default function RiskTable({ farms }: RiskTableProps) {
             const vesselRisk = score > 7; 
             
             return (
-              <TableRow key={farm.id} className="group">
+              <TableRow 
+                key={farm.id} 
+                className="group cursor-pointer hover:bg-slate-50 transition-colors"
+                onClick={() => onFarmClick?.(farm)}
+              >
                 <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                 <TableCell className="font-medium text-foreground">
                   {farm.name}

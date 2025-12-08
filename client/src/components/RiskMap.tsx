@@ -9,9 +9,10 @@ interface RiskMapProps {
   farms: FishFarm[];
   vessels: Vessel[];
   selectedPo: string | null;
+  selectedFarm?: FishFarm | null;
 }
 
-export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
+export default function RiskMap({ farms, vessels, selectedPo, selectedFarm }: RiskMapProps) {
   const mapRef = useRef<L.Map>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const centerPosition: [number, number] = [63.5, 12.0]; // Center of Norway
@@ -85,6 +86,13 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
       mapRef.current.flyTo(centerPosition, 5, { duration: 1.5 });
     }
   }, [selectedPo, displayFarms.length]);
+
+  // Zoom to selected farm when clicked
+  useEffect(() => {
+    if (selectedFarm && mapRef.current) {
+      mapRef.current.flyTo([selectedFarm.lat, selectedFarm.lng], 10, { duration: 1.5 });
+    }
+  }, [selectedFarm]);
 
   return (
     <Card className="h-[600px] w-full overflow-hidden border-0 shadow-lg relative z-0" ref={mapContainerRef}>
@@ -169,12 +177,16 @@ export default function RiskMap({ farms, vessels, selectedPo }: RiskMapProps) {
           const level = getRiskLevel(score);
           const color = getRiskColor(level);
           
-          // Determine border style
+          // Determine border style - highlight if selected
           let strokeColor = "#fff";
           let strokeWidth = 1;
           let dashArray = undefined;
+          let isSelected = selectedFarm?.id === farm.id;
 
-          if (farm.forcedSlaughter) {
+          if (isSelected) {
+            strokeColor = "#fbbf24"; // Bright yellow for selected
+            strokeWidth = 4;
+          } else if (farm.forcedSlaughter) {
             strokeColor = "#000";
             strokeWidth = 3;
           } else if (farm.hasAlgaeRisk) {

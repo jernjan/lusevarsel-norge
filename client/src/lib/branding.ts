@@ -13,5 +13,5 @@ export const AQUASHIELD_LOGO_SVG = `
 `;
 
 export const COMPANY_NAME = "AquaShield";
-export const TAGLINE = "Profesjonell overvåking og spredningsreduksjon";
-export const COMPANY_SHORT = "LuseVarsel Norge";
+export const TAGLINE = "Overvåking og spredningsreduksjon";
+export const COMPANY_SHORT = "AquaShield";

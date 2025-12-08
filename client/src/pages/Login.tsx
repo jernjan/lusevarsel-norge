@@ -56,7 +56,7 @@ const Login: React.FC = () => {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="text-5xl mb-2">🐟</div>
-          <CardTitle className="text-2xl">LuseVarsel Norge</CardTitle>
+          <CardTitle className="text-2xl">AquaShield</CardTitle>
           <CardDescription>Innlogging</CardDescription>
         </CardHeader>
         <CardContent>

@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [vessels, setVessels] = useState<Vessel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [selectedFarm, setSelectedFarm] = useState<FishFarm | null>(null);
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -66,7 +67,7 @@ export default function Dashboard() {
     
     toast({
       title: "E-post sendt! (Simulering)",
-      description: `LuseVarsel uke ${currentWeek}: ${highRiskCount} anlegg i rød sone sendt til abonnenter.`,
+      description: `AquaShield uke ${currentWeek}: ${highRiskCount} anlegg i rød sone sendt til abonnenter.`,
       duration: 5000,
       className: "bg-green-50 border-green-200 text-green-900",
     });
@@ -232,6 +233,8 @@ export default function Dashboard() {
 
         {/* Action Bar */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+           {/* Admin only features - hidden for now */}
+           {/*
            <Button 
              onClick={handleGenerateReport} 
              disabled={generatingPDF || loading}
@@ -248,6 +251,7 @@ export default function Dashboard() {
              <Mail className="h-4 w-4" />
              Send Risikovarsel
            </Button>
+           */}
         </div>
 
         {/* Map & Table Grid */}
@@ -286,7 +290,12 @@ export default function Dashboard() {
               </div>
             ) : (
               <div ref={mapContainerRef}>
-                <RiskMap farms={userFilteredFarms} vessels={userFilteredVessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
+                <RiskMap 
+                  farms={userFilteredFarms} 
+                  vessels={userFilteredVessels} 
+                  selectedPo={selectedPo === "all" ? null : selectedPo}
+                  selectedFarm={selectedFarm}
+                />
               </div>
             )}
           </div>
@@ -306,7 +315,14 @@ export default function Dashboard() {
                  ))}
                </div>
             ) : (
-              <RiskTable farms={userFilteredFarms} />
+              <RiskTable 
+                farms={userFilteredFarms} 
+                onFarmClick={(farm) => {
+                  setSelectedFarm(farm);
+                  // Scroll to map
+                  mapContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              )
             )}
           </div>
 
