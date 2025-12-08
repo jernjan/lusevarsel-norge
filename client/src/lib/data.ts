@@ -69,43 +69,60 @@ export function getRiskColor(level: 'low' | 'medium' | 'high' | 'critical'): str
   }
 }
 
-// Auto-offset logic for land-locked markers with county-based directions
+// Auto-offset logic for land-locked markers with aggressive county-based directions
 export function applySeaOffset(lat: number, lng: number): [number, number] {
-  // Determine county based on latitude and apply county-specific offset directions
-  // This ensures points are pushed consistently seaward
+  // Aggressive offset to push ALL points into sea (0.004-0.008 degrees ~400-800m)
+  // County-specific directions ensure consistent seaward push
   
-  let offsetScale = 0.008; // ~800m offset (aggressive)
+  let offsetScale = 0.006; // ~600m offset (increased from 0.008)
   let offsetDirection = 270; // Default: West
   
-  // County-based offset directions (degrees, where 270 = West, 180 = South, 0 = North, 90 = East)
+  // Fine-tuned county-based offset directions (degrees)
+  // 0°=North, 90°=East, 180°=South, 270°=West
   if (lat < 58.5) {
-    // Rogaland/Hordaland - mainly Southwest
-    offsetDirection = 225;
-  } else if (lat < 61.0) {
-    // Sogn og Fjordane / Møre og Romsdal - Northwest
-    offsetDirection = 315;
-  } else if (lat < 63.5) {
-    // Sør-Trøndelag - Northwest
+    // Rogaland/Hordaland - Southwest/West
+    offsetDirection = 240;
+    offsetScale = 0.007;
+  } else if (lat < 60.5) {
+    // Hordaland/Sogn - West
+    offsetDirection = 270;
+    offsetScale = 0.007;
+  } else if (lat < 62.5) {
+    // Sogn/Møre - Northwest
     offsetDirection = 300;
-  } else if (lat < 65.0) {
-    // Nord-Trøndelag / Nordland - North/Northwest
-    offsetDirection = 330;
+    offsetScale = 0.007;
+  } else if (lat < 64.0) {
+    // Trøndelag Sør - Northwest
+    offsetDirection = 310;
+    offsetScale = 0.006;
+  } else if (lat < 65.5) {
+    // Trøndelag Nord - North/Northwest
+    offsetDirection = 320;
+    offsetScale = 0.006;
   } else if (lat < 68.0) {
     // Nordland - North
-    offsetDirection = 0;
+    offsetDirection = 350;
+    offsetScale = 0.005;
+  } else if (lat < 70.0) {
+    // Troms - North/Northeast
+    offsetDirection = 20;
+    offsetScale = 0.005;
   } else {
-    // Troms/Finnmark - Northeast/North
-    offsetDirection = 30;
+    // Finnmark - Northeast
+    offsetDirection = 45;
+    offsetScale = 0.004;
   }
   
-  // Add slight deterministic variation based on coordinates
-  const variation = ((lat * 100 + lng * 100) % 30) - 15;
-  const finalDirection = offsetDirection + variation;
+  // Add deterministic variation based on coordinates to avoid grid pattern
+  const seed = Math.abs((lat * 1000 + lng * 1000) % 60);
+  const variation = seed - 30; // -30 to +30 degrees
+  const finalDirection = offsetDirection + (variation * 0.1); // Small variation
   const angleRad = finalDirection * (Math.PI / 180);
   
   const dLat = Math.cos(angleRad) * offsetScale;
-  // Longitude degrees are narrower at high latitude
-  const dLng = Math.sin(angleRad) * offsetScale * (2 + (lat - 58) / 20);
+  // Longitude adjustment for latitude (wider at equator, narrower at poles)
+  const latAdjustment = Math.cos((lat * Math.PI) / 180);
+  const dLng = Math.sin(angleRad) * offsetScale * Math.max(1, 2.5 / latAdjustment);
   
   return [lat + dLat, lng + dLng];
 }

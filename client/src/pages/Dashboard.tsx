@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
 import { useAuth } from '@/context/AuthContext';
+import { generatePDFReport } from '@/lib/pdf-report';
 import RiskMap from '@/components/RiskMap';
 import RiskTable from '@/components/RiskTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,13 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from 'wouter';
-import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw, FileText, Ship, Fish, LogOut, Settings } from 'lucide-react';
+import { Waves, AlertCircle, TrendingUp, MapPin, Mail, RefreshCw, FileText, Ship, Fish, LogOut, Settings, Download } from 'lucide-react';
 
 export default function Dashboard() {
   const [selectedPo, setSelectedPo] = useState<string>("all");
   const [farms, setFarms] = useState<FishFarm[]>([]);
   const [vessels, setVessels] = useState<Vessel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const [navigate] = useNavigate();
@@ -69,63 +71,78 @@ export default function Dashboard() {
     });
   };
 
-  const handleGenerateReport = () => {
-     toast({
-      title: "Rapport generert",
-      description: "PDF-rapport for uke 49 (Komplett status) lastes ned...",
-      duration: 3000,
-    });
+  const handleGenerateReport = async () => {
+    try {
+      setGeneratingPDF(true);
+      await generatePDFReport(userFilteredFarms, user?.company || 'Din Bedrift');
+      toast({
+        title: "✓ Rapport generert",
+        description: `PDF-rapport lastet ned for ${user?.company}`,
+        duration: 3000,
+        className: "bg-green-50 border-green-200 text-green-900",
+      });
+    } catch (error) {
+      toast({
+        title: "Feil ved generering",
+        description: "Kunne ikke generere PDF-rapport",
+        duration: 3000,
+        className: "bg-red-50 border-red-200 text-red-900",
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background pb-12">
       {/* Header */}
-      <header className="bg-white border-b border-border sticky top-0 z-50">
+      <header className="bg-gradient-to-r from-blue-600 to-blue-500 border-b border-blue-700 sticky top-0 z-50 shadow-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 h-9 w-9 rounded-lg flex items-center justify-center text-white shadow-sm shadow-blue-200">
-              <span className="text-xl">🐟</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-white h-10 w-10 rounded-lg flex items-center justify-center text-2xl shadow-md">
+              🐟
             </div>
             <div>
-               <h1 className="text-xl font-display font-bold text-slate-900 leading-none tracking-tight">LuseVarsel Norge</h1>
-               <span className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Profesjonell Overvåking</span>
+               <h1 className="text-2xl font-display font-black text-white leading-none tracking-tight">AquaShield</h1>
+               <span className="text-[9px] text-blue-100 font-bold uppercase tracking-widest">Profesjonell overvåking og spredningsreduksjon</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden md:inline">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
+            <span className="text-xs md:text-sm text-blue-100 hidden sm:inline">
               {user && `${user.company}`}
             </span>
-            <span className="text-sm text-muted-foreground hidden md:inline">Oppdatert: Nå nettopp</span>
+            <span className="text-xs md:text-sm text-blue-100 hidden md:inline">Nå</span>
             <Button 
-              variant="outline" 
+              variant="secondary" 
               size="sm" 
               onClick={loadData} 
               disabled={loading}
-              className="hidden sm:flex"
+              className="hidden md:flex text-xs md:text-sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 ${loading ? 'animate-spin' : ''}`} />
               Oppdater
             </Button>
             <Button 
-              variant="outline" 
+              variant="secondary" 
               size="sm"
               onClick={() => navigate('/setup')}
-              className="hidden sm:flex"
+              className="hidden md:flex text-xs md:text-sm"
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Instillinger
+              <Settings className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              Innstillinger
             </Button>
             <Button 
-              variant="ghost" 
+              variant="secondary" 
               size="sm"
               onClick={() => {
                 logout();
                 navigate('/login');
               }}
+              className="text-xs md:text-sm"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logg ut
+              <LogOut className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden md:inline">Logg ut</span>
             </Button>
             <div className="w-[180px]">
               <Select value={selectedPo} onValueChange={setSelectedPo}>
@@ -212,12 +229,20 @@ export default function Dashboard() {
         </div>
 
         {/* Action Bar */}
-        <div className="flex justify-end gap-3">
-           <Button onClick={handleGenerateReport} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-             <FileText className="h-4 w-4" />
-             Generer PDF-rapport (Uke 49)
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+           <Button 
+             onClick={handleGenerateReport} 
+             disabled={generatingPDF || loading}
+             className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md font-semibold py-3 md:py-2 text-base md:text-sm"
+           >
+             <Download className={`h-4 w-4 ${generatingPDF ? 'animate-spin' : ''}`} />
+             {generatingPDF ? 'Genererer PDF...' : 'Last ned PDF-rapport'}
            </Button>
-           <Button onClick={handleSendEmail} variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
+           <Button 
+             onClick={handleSendEmail} 
+             variant="outline" 
+             className="gap-2 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold py-3 md:py-2 text-base md:text-sm"
+           >
              <Mail className="h-4 w-4" />
              Send Risikovarsel
            </Button>
@@ -249,8 +274,13 @@ export default function Dashboard() {
               </div>
             </div>
             {loading ? (
-              <div className="h-[600px] w-full flex items-center justify-center bg-slate-50 border rounded-lg">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <div className="h-[600px] w-full flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-slate-50 border-2 border-blue-200 rounded-lg shadow-inner">
+                <div className="relative h-16 w-16 mb-4">
+                  <div className="absolute inset-0 animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
+                  <div className="absolute inset-2 flex items-center justify-center text-2xl">🐟</div>
+                </div>
+                <p className="text-slate-600 font-semibold text-lg">Henter data...</p>
+                <p className="text-slate-500 text-sm mt-1">Laster lokaliteter og fartøysdata</p>
               </div>
             ) : (
               <RiskMap farms={userFilteredFarms} vessels={userFilteredVessels} selectedPo={selectedPo === "all" ? null : selectedPo} />
@@ -266,9 +296,9 @@ export default function Dashboard() {
               Topp 20 anlegg rangert etter risiko. Inkluderer fartøysvarsel og sykdomsstatus.
             </CardDescription>
             {loading ? (
-               <div className="space-y-2">
-                 {[...Array(5)].map((_, i) => (
-                   <div key={i} className="h-12 bg-slate-100 rounded animate-pulse" />
+               <div className="space-y-3">
+                 {[...Array(6)].map((_, i) => (
+                   <div key={i} className="h-14 bg-gradient-to-r from-slate-100 to-slate-50 rounded-lg animate-pulse" />
                  ))}
                </div>
             ) : (
