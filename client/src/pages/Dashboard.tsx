@@ -322,7 +322,7 @@ export default function Dashboard() {
                   // Scroll to map
                   mapContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
-              )
+              />
             )}
           </div>
 
