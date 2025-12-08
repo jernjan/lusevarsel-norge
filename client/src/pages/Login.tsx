@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +12,14 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   // If already authenticated, redirect to setup or dashboard
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/setup');
+      setLocation('/setup');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +42,7 @@ const Login: React.FC = () => {
     setTimeout(() => {
       try {
         login(email, company);
-        navigate('/setup');
+        setLocation('/setup');
       } catch (err) {
         setError('Innlogging mislyktes. Prøv igjen.');
       } finally {

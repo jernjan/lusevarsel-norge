@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const MyFacilities: React.FC = () => {
   const { user, updateFacilities, updateVessels } = useAuth();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [facilitiesInput, setFacilitiesInput] = useState(user?.facilities.join(', ') || '');
   const [vesselsInput, setVesselsInput] = useState(user?.vessels.join(', ') || '');
   const [saved, setSaved] = useState(false);
@@ -24,7 +24,7 @@ const MyFacilities: React.FC = () => {
           <CardContent>
             <p className="text-slate-600">Du må logge inn først før du kan sette opp dine anlegg og båter.</p>
             <Button 
-              onClick={() => navigate('/login')} 
+              onClick={() => setLocation('/login')} 
               className="w-full mt-4"
             >
               Gå til innlogging
@@ -58,7 +58,7 @@ const MyFacilities: React.FC = () => {
       setError('');
 
       setTimeout(() => {
-        navigate('/dashboard');
+        setLocation('/dashboard');
       }, 1500);
     } catch (err) {
       setError('Feil ved lagring av data');
@@ -150,7 +150,7 @@ const MyFacilities: React.FC = () => {
                 {saved ? 'Lagret ✓' : 'Lagre og fortsett'}
               </Button>
               <Button 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => setLocation('/dashboard')}
                 variant="outline"
                 size="lg"
                 className="flex-1"
