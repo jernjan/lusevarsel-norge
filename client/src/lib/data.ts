@@ -389,15 +389,26 @@ export async function getLiceData(): Promise<FishFarm[]> {
   
   try {
     // Fetch ALL localities from BarentsWatch API – no limits, no pagination
-    const response = await fetch("https://www.barentswatch.no/bwapi/v2/fishhealth/lice");
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    console.log('🔄 Henter alle anlegg fra BarentsWatch API...');
+    const response = await fetch("https://www.barentswatch.no/bwapi/v2/fishhealth/lice", {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'AquaShield/1.0'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
     
     const data = await response.json();
     
     // Handle both array and paginated responses
-    const items = Array.isArray(data) ? data : data.items || data.data || [];
+    const items = Array.isArray(data) ? data : data.items || data.data || data.result || [];
     
-    if (items.length === 0) throw new Error('No data returned from API');
+    if (items.length === 0) {
+      throw new Error('No data returned from API');
+    }
     
     console.log(`✓ Hentet ${items.length} anlegg fra BarentsWatch API`);
     
@@ -432,6 +443,11 @@ export async function getLiceData(): Promise<FishFarm[]> {
       })
       .sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
     
+    // Verify we got reasonable data
+    if (farms.length < 100) {
+      console.warn(`⚠ Bare ${farms.length} anlegg hentet – API kan være begrenset`);
+    }
+    
     // Cache the data for 1 hour
     setCachedFarms(farms);
     
@@ -453,7 +469,7 @@ export async function getLiceData(): Promise<FishFarm[]> {
     
     // Final fallback: limited mock data if everything fails
     console.log(`✗ Cache ikke tilgjengelig, bruker ${mockFarms.length} mock-anlegg som siste fallback`);
-    return mockFarms.slice(0, 100).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
+    return mockFarms.slice(0, 200).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
   }
 }
 
