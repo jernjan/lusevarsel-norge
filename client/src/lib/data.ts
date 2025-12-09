@@ -120,6 +120,55 @@ export function calculatePredictiveRiskScore(farm: FishFarm, allFarms: FishFarm[
   return Math.min(10, Math.max(1, Math.round(score)));
 }
 
+// FUTURE RISK SCORING – predicts risk level in 1-2 weeks
+// Uses temperature trend, nearby disease expansion, and vessel traffic patterns
+export function calculateFutureRiskScore(farm: FishFarm, allFarms: FishFarm[], vessels: Vessel[]): number {
+  let score = calculatePredictiveRiskScore(farm, allFarms, vessels); // Start with current predictive
+  
+  // Temperature effect on lice development
+  // Lice thrive at 8-15°C. If temp is rising toward this range, +2 points
+  if (farm.temp >= 7 && farm.temp <= 15) {
+    // Optimal range – lice will multiply faster in coming weeks
+    score += 2;
+  } else if (farm.temp > 15) {
+    // Too warm – lice stressed, but algae blooms likely
+    score += 1;
+  }
+  
+  // Disease expansion risk: if nearby farm has disease, assume it spreads in 1-2 weeks
+  const nearbyDiseased = allFarms.filter(other => {
+    if (!other.disease || other.id === farm.id) return false;
+    const distance = Math.sqrt(
+      Math.pow(other.lat - farm.lat, 2) + 
+      Math.pow(other.lng - farm.lng, 2)
+    );
+    return distance < 0.5; // ~50km zone of disease expansion
+  });
+  
+  if (nearbyDiseased.length > 0) {
+    // If multiple diseased farms nearby, risk of disease reaching this farm is HIGH
+    score += Math.min(3, nearbyDiseased.length); // +1 to +3 depending on proximity
+  }
+  
+  // Incoming vessel traffic risk
+  // If risky vessels are heading toward this region, add 2 points
+  const incomingVessels = vessels.filter(v => {
+    if (!v.passedRiskZone) return false;
+    const distance = Math.sqrt(
+      Math.pow(v.lat - farm.lat, 2) + 
+      Math.pow(v.lng - farm.lng, 2)
+    );
+    return distance < 0.5; // Within ~50km
+  });
+  
+  if (incomingVessels.length > 0) {
+    score += incomingVessels.length;
+  }
+  
+  // Cap at 10 for critical level
+  return Math.min(10, Math.max(1, Math.round(score)));
+}
+
 // Updated Logic based on new requirements
 export function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
   if (score >= 8) return 'critical'; // Red (8-10)

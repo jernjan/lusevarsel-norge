@@ -1,4 +1,4 @@
-import { FishFarm, calculateRiskScore, getRiskLevel, getRiskColor } from '@/lib/data';
+import { FishFarm, calculateRiskScore, calculateFutureRiskScore, getRiskLevel, getRiskColor } from '@/lib/data';
 import {
   Table,
   TableBody,
@@ -8,14 +8,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, Thermometer, AlertTriangle, Droplets, Skull, Biohazard, ShieldAlert, Ship } from 'lucide-react';
+import { ArrowUpRight, Thermometer, AlertTriangle, Droplets, Skull, Biohazard, ShieldAlert, Ship, TrendingUp } from 'lucide-react';
 
 interface RiskTableProps {
   farms: FishFarm[];
+  vessels?: any[];
   onFarmClick?: (farm: FishFarm) => void;
 }
 
-export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
+export default function RiskTable({ farms, vessels = [], onFarmClick }: RiskTableProps) {
   // Sort by risk score descending and take top 20
   const topRiskyFarms = [...farms]
     .sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a))
@@ -29,18 +30,21 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
             <TableHead className="w-[40px] text-slate-900 font-bold">#</TableHead>
             <TableHead className="text-slate-900 font-bold">Anlegg</TableHead>
             <TableHead className="text-slate-900 font-bold">PO</TableHead>
-            <TableHead className="text-right text-slate-900 font-bold">Score</TableHead>
+            <TableHead className="text-right text-slate-900 font-bold">Risiko Nå</TableHead>
             <TableHead className="text-right text-slate-900 font-bold">Lusnivå</TableHead>
+            <TableHead className="text-center text-slate-900 font-bold">Risiko 1-2 Uke</TableHead>
             <TableHead className="text-center text-slate-900 font-bold">Sykdommer</TableHead>
             <TableHead className="text-center text-slate-900 font-bold">Alge</TableHead>
-            <TableHead className="text-slate-900 font-bold">Status / Spredningsrisiko</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {topRiskyFarms.map((farm, index) => {
             const score = calculateRiskScore(farm);
+            const futureScore = calculateFutureRiskScore(farm, topRiskyFarms, vessels);
             const level = getRiskLevel(score);
+            const futureLevel = getRiskLevel(futureScore);
             const color = getRiskColor(level);
+            const futureColor = getRiskColor(futureLevel);
             
             // Calculate pseudo-risk for vessels passing by (simulated logic)
             const vesselRisk = score > 7; 
@@ -51,8 +55,8 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
                 className="group cursor-pointer hover:bg-slate-50 transition-colors"
                 onClick={() => onFarmClick?.(farm)}
               >
-                <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-medium text-foreground">
+                <TableCell className="font-medium text-slate-600">{index + 1}</TableCell>
+                <TableCell className="font-medium text-slate-900">
                   {farm.name}
                   {farm.disease && (
                     <span className="ml-2 text-xs font-bold text-red-600 border border-red-200 bg-red-50 px-1 rounded">
@@ -60,7 +64,7 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">PO {farm.po}</TableCell>
+                <TableCell className="text-slate-600">PO {farm.po}</TableCell>
                 <TableCell className="text-right">
                   <Badge 
                     variant="outline" 
@@ -70,8 +74,26 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
                     {score}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono text-slate-600">
+                <TableCell className="text-right font-mono text-slate-700">
                   {farm.liceCount.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="font-mono font-bold border-0 text-white min-w-[2rem] justify-center"
+                      style={{ backgroundColor: futureColor }}
+                      title="Prediktert risiko om 1-2 uker basert på temperatur, sykdom i nærheten og båttrafikk"
+                    >
+                      {futureScore}
+                    </Badge>
+                    {futureScore > score && (
+                      <TrendingUp className="h-4 w-4 text-orange-500" title="Risiko stiger" />
+                    )}
+                    {futureScore < score && (
+                      <ArrowUpRight className="h-4 w-4 text-green-500 rotate-180" title="Risiko synker" />
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-center">
                   {farm.disease ? (
@@ -90,46 +112,6 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
                   ) : (
                     <span className="text-slate-300">-</span>
                   )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex gap-1 flex-wrap">
-                      {farm.forcedSlaughter && (
-                        <Badge variant="destructive" className="text-xs h-5 px-1 bg-black text-white hover:bg-slate-800" title="Tvangsslakting">
-                          <Skull className="h-3 w-3 mr-1" /> Slakt
-                        </Badge>
-                      )}
-                      {farm.inQuarantine && (
-                        <Badge variant="secondary" className="text-xs h-5 px-1 bg-purple-100 text-purple-700 border-purple-200" title="Karantene">
-                          <ShieldAlert className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {farm.disease && (
-                        <Badge variant="secondary" className="text-xs h-5 px-1 bg-red-100 text-red-700 border-red-200" title={`Sykdom: ${farm.disease}`}>
-                          <Biohazard className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      
-                      {/* Standard Alerts */}
-                      {farm.liceIncrease && (
-                        <Badge variant="secondary" className="text-xs h-5 px-1 bg-red-50 text-red-600 border-red-100" title="Økning > 30%">
-                          <ArrowUpRight className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {farm.temp > 8 && (
-                        <Badge variant="secondary" className="text-xs h-5 px-1 bg-orange-50 text-orange-600 border-orange-100" title="Høy temperatur">
-                          <Thermometer className="h-3 w-3" />
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {vesselRisk && (
-                      <div className="text-[10px] text-red-600 flex items-center gap-1 font-medium bg-red-50 p-1 rounded border border-red-100 w-fit">
-                        <Ship className="h-3 w-3" />
-                        Risiko: Desinfeksjon anbefalt
-                      </div>
-                    )}
-                  </div>
                 </TableCell>
               </TableRow>
             );

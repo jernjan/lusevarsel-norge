@@ -357,7 +357,8 @@ export default function Dashboard() {
                </div>
             ) : (
               <RiskTable 
-                farms={userFilteredFarms} 
+                farms={userFilteredFarms}
+                vessels={userFilteredVessels}
                 onFarmClick={(farm) => {
                   setSelectedFarm(farm);
                   // Scroll to map
