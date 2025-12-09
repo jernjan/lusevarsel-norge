@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { FishFarm, calculateRiskScore, getRiskLevel, getRiskColor } from './data';
+import { FishFarm, Vessel, calculateRiskScore, calculatePredictiveRiskScore, calculateFutureRiskScore, getRiskLevel, getRiskColor } from './data';
 import { COMPANY_NAME, TAGLINE } from './branding';
 
 export async function generatePDFReport(
@@ -312,6 +312,18 @@ export async function generatePDFReport(
       
       if (nearbyDiseased.length > 0) {
         const diseases = [...new Set(nearbyDiseased.map(f => f.disease).filter(Boolean))];
+        
+        // Map disease codes to full names
+        const diseaseNames: Record<string, string> = {
+          'PD': 'Pankreassykdom',
+          'ILA': 'Infeksiøs lakseanemi',
+          'IPN': 'Infeksiøs pankreasnekrose'
+        };
+        
+        const diseaseFull = diseases
+          .map(d => `${d} (${diseaseNames[d] || 'Ukjent sykdom'})`)
+          .join(', ');
+        
         doc.setTextColor(220, 38, 38);
         doc.setFont('Helvetica', 'bold');
         doc.text(`🚢 ${vessel.name} (${vessel.type})`, 15, yPos);
@@ -319,7 +331,7 @@ export async function generatePDFReport(
         
         doc.setTextColor(200, 0, 0);
         doc.setFont('Helvetica', 'normal');
-        doc.text(`  Kan bære: ${diseases.join(', ')}`, 20, yPos);
+        doc.text(`  ⚠ Kan bære: ${diseaseFull}`, 20, yPos);
         yPos += 4;
         
         doc.setTextColor(0, 0, 0);

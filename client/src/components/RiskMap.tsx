@@ -202,105 +202,85 @@ export default function RiskMap({ farms, vessels, selectedPo, selectedFarm }: Ri
           }
           
           return (
-            <div key={farm.id}>
-              {/* Main Farm Marker */}
-              <CircleMarker 
-                center={[farm.lat, farm.lng]}
-                radius={8}
-                fillOpacity={0.8}
-                stroke={true}
-                weight={strokeWidth}
-                color={strokeColor}
-                dashArray={dashArray}
-                pathOptions={{ fillColor: color }}
-              >
-                <Popup className="font-sans">
-                  <div className="p-2 min-w-[200px]">
-                    <h3 className="font-bold text-lg mb-1">{farm.name}</h3>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span 
-                        className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        Score: {score}/10
-                      </span>
-                      <span className="text-xs text-muted-foreground">PO {farm.po}</span>
-                    </div>
-                    
-                    <div className="space-y-1 text-sm text-slate-700">
-                      <div className="flex justify-between">
-                         <span>Hunnlus:</span>
-                         <span className="font-mono font-medium">{farm.liceCount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                         <span>Temperatur:</span>
-                         <span className="font-mono font-medium">{farm.temp.toFixed(1)}°C</span>
-                      </div>
-                      
-                      {/* New Metrics in Popup */}
-                      {farm.currentSpeed !== undefined && (
-                        <div className="flex justify-between text-xs text-slate-500">
-                           <span>Strøm:</span>
-                           <span className="font-mono">{farm.currentSpeed.toFixed(2)} m/s</span>
-                        </div>
-                      )}
-                      
-                      {farm.chlorophyll !== undefined && (
-                        <div className="flex justify-between text-xs text-slate-500">
-                           <span>Klorofyll-a:</span>
-                           <span className="font-mono">{farm.chlorophyll.toFixed(1)} µg/L</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Alerts Section */}
-                    <div className="mt-3 pt-2 border-t border-slate-100 space-y-1">
-                      {farm.forcedSlaughter && (
-                        <div className="text-xs font-bold text-black flex items-center gap-1">
-                          ⚫ TVANGSSLAKTING PÅGÅR
-                        </div>
-                      )}
-                      {farm.disease && (
-                        <div className="text-xs font-bold text-red-600 flex items-center gap-1">
-                          🦠 Sykdom påvist: {farm.disease}
-                        </div>
-                      )}
-                       {farm.hasAlgaeRisk && (
-                        <div className="text-xs font-bold text-purple-600 flex items-center gap-1">
-                          🟣 Høy algerisiko (Varsel)
-                        </div>
-                      )}
-                      {farm.liceIncrease && (
-                        <div className="text-xs text-red-600 flex items-center gap-1">
-                          ⚠ Økende lusetall
-                        </div>
-                      )}
-                    </div>
+            <CircleMarker 
+              key={farm.id}
+              center={[farm.lat, farm.lng]}
+              radius={8}
+              fillOpacity={0.8}
+              stroke={true}
+              weight={strokeWidth}
+              color={strokeColor}
+              dashArray={dashArray}
+              pathOptions={{ fillColor: color }}
+            >
+              <Popup className="font-sans">
+                <div className="p-2 min-w-[200px]">
+                  <h3 className="font-bold text-lg mb-1">{farm.name}</h3>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span 
+                      className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      Score: {score}/10
+                    </span>
+                    <span className="text-xs text-muted-foreground">PO {farm.po}</span>
                   </div>
-                </Popup>
-                <Tooltip direction="top" offset={[0, -5]} opacity={1}>
-                  {farm.name} (Score: {score})
-                </Tooltip>
-              </CircleMarker>
-
-              {/* Smart Filtering: Animated Current Arrow ONLY for High Risk Farms (>7) AND High Current (>0.3) */}
-              {score > 7 && farm.currentSpeed && farm.currentSpeed > 0.3 && farm.currentDirection && (
-                <Marker
-                  position={[farm.lat, farm.lng]}
-                  icon={divIcon({
-                    className: 'bg-transparent border-none',
-                    html: `<div class="animate-pulse" style="transform: rotate(${farm.currentDirection}deg); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                               <path d="M12 2L12 19M12 2L5 9M12 2L19 9" stroke="#dc2626" stroke-width="${farm.currentSpeed > 0.5 ? '3' : '2'}" stroke-linecap="round" stroke-linejoin="round"/>
-                             </svg>
-                           </div>`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16] // Center the rotation
-                  })}
-                  zIndexOffset={100} 
-                />
-              )}
-            </div>
+                  
+                  <div className="space-y-1 text-sm text-slate-700">
+                    <div className="flex justify-between">
+                       <span>Hunnlus:</span>
+                       <span className="font-mono font-medium">{farm.liceCount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                       <span>Temperatur:</span>
+                       <span className="font-mono font-medium">{farm.temp.toFixed(1)}°C</span>
+                    </div>
+                    
+                    {/* New Metrics in Popup */}
+                    {farm.currentSpeed !== undefined && (
+                      <div className="flex justify-between text-xs text-slate-500">
+                         <span>Strøm:</span>
+                         <span className="font-mono">{farm.currentSpeed.toFixed(2)} m/s</span>
+                      </div>
+                    )}
+                    
+                    {farm.chlorophyll !== undefined && (
+                      <div className="flex justify-between text-xs text-slate-500">
+                         <span>Klorofyll-a:</span>
+                         <span className="font-mono">{farm.chlorophyll.toFixed(1)} µg/L</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Alerts Section */}
+                  <div className="mt-3 pt-2 border-t border-slate-100 space-y-1">
+                    {farm.forcedSlaughter && (
+                      <div className="text-xs font-bold text-black flex items-center gap-1">
+                        ⚫ TVANGSSLAKTING PÅGÅR
+                      </div>
+                    )}
+                    {farm.disease && (
+                      <div className="text-xs font-bold text-red-600 flex items-center gap-1">
+                        🦠 Sykdom påvist: {farm.disease}
+                      </div>
+                    )}
+                     {farm.hasAlgaeRisk && (
+                      <div className="text-xs font-bold text-purple-600 flex items-center gap-1">
+                        🟣 Høy algerisiko (Varsel)
+                      </div>
+                    )}
+                    {farm.liceIncrease && (
+                      <div className="text-xs text-red-600 flex items-center gap-1">
+                        ⚠ Økende lusetall
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Popup>
+              <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+                {farm.name} (Score: {score})
+              </Tooltip>
+            </CircleMarker>
           );
         })}
       </MapContainer>

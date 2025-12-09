@@ -340,9 +340,9 @@ export const mockVessels: Vessel[] = Array.from({ length: 15 }, (_, i) => {
   };
 });
 
-// Cache management for API data (1-hour TTL)
+// Cache management for API data (12-hour TTL = 2x daily fetch)
 const CACHE_KEY = 'aquashield_farms_cache';
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
 
 interface CachedData {
   data: FishFarm[];
@@ -484,8 +484,17 @@ export async function getVesselData(): Promise<Vessel[]> {
     
     console.log(`✓ Hentet ${items.length} fartøyer fra Kystverket AIS`);
     
-    return items
-      .filter((item: any) => item.latitude && item.longitude)
+    // Filter to only Norwegian waters (59-72°N, 2-32°E)
+    // This eliminates international shipping and focuses on aquaculture-relevant vessels
+    const norwegianWaters = items.filter((item: any) => {
+      return item.latitude >= 59 && item.latitude <= 72 &&
+             item.longitude >= 2 && item.longitude <= 32;
+    });
+    
+    console.log(`✓ Filtrert til ${norwegianWaters.length} båter i norske farvann`);
+    
+    return norwegianWaters
+      .filter((item: any) => item.latitude && item.longitude && item.name)
       .map((item: any) => {
         // Map vessel type correctly based on AIS data
         let type: 'Wellboat' | 'Service' | 'Fishing' | 'Cable' | 'Unknown' = 'Unknown';
