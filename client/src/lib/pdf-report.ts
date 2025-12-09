@@ -237,6 +237,134 @@ export async function generatePDFReport(
   doc.save(filename);
 }
 
+// Generate vessel report with risk assessment and recommendations
+export async function generateVesselReport(
+  farms: FishFarm[],
+  vessels: any[],
+  companyName: string,
+  date: Date = new Date()
+): Promise<void> {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPos = 10;
+
+  // Header
+  doc.setFillColor(14, 165, 233);
+  doc.rect(0, 0, pageWidth, 30, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('🐟 AquaShield', 15, 15);
+  doc.setFontSize(10);
+  doc.setFont('Helvetica', 'normal');
+  doc.text(TAGLINE, 15, 22);
+  
+  yPos = 35;
+
+  // Title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(18);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Båt-Overvåking Rapport', 15, yPos);
+  
+  yPos += 10;
+  doc.setFontSize(10);
+  doc.setFont('Helvetica', 'normal');
+  doc.text(`Bedrift: ${companyName}`, 15, yPos);
+  yPos += 5;
+  doc.text(`Dato: ${date.toLocaleDateString('no-NO')}`, 15, yPos);
+  yPos += 10;
+
+  // Vessel risk summary
+  doc.setFontSize(12);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Fartøyer i risikozone', 15, yPos);
+  yPos += 8;
+
+  const riskFarms = farms.filter(f => calculateRiskScore(f) >= 6);
+  const relevantVessels = vessels.slice(0, 10);
+
+  doc.setFontSize(9);
+  doc.setFont('Helvetica', 'normal');
+  
+  relevantVessels.forEach((vessel, idx) => {
+    if (yPos > pageHeight - 30) {
+      doc.addPage();
+      yPos = 10;
+    }
+
+    const nearbyRiskFarms = riskFarms.filter(farm => 
+      Math.sqrt(Math.pow(farm.lat - vessel.lat, 2) + Math.pow(farm.lng - vessel.lng, 2)) < 0.5
+    );
+
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`${idx + 1}. ${vessel.name}`, 15, yPos);
+    yPos += 5;
+
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Type: ${vessel.type} | Posisjon: ${vessel.lat.toFixed(2)}, ${vessel.lng.toFixed(2)}`, 15, yPos);
+    yPos += 4;
+
+    if (nearbyRiskFarms.length > 0) {
+      doc.setTextColor(220, 38, 38);
+      doc.text(`⚠ Nær ${nearbyRiskFarms.length} høy-risiko anlegg`, 15, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 4;
+
+      doc.setFont('Helvetica', 'bold');
+      doc.text('Anbefalte tiltak:', 15, yPos);
+      yPos += 3;
+      doc.setFont('Helvetica', 'normal');
+      doc.text('• Desinfeksjon av skrog og utstyr', 15, yPos);
+      yPos += 3;
+      doc.text('• Vask av nett og bølgebredde', 15, yPos);
+      yPos += 3;
+      doc.text('• Kontrollmåling etter tiltak', 15, yPos);
+      yPos += 5;
+    }
+  });
+
+  // Disinfection recommendations
+  yPos += 5;
+  if (yPos > pageHeight - 40) {
+    doc.addPage();
+    yPos = 10;
+  }
+
+  doc.setFontSize(12);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Desinfeksjons-protokoll', 15, yPos);
+  yPos += 8;
+
+  doc.setFontSize(9);
+  doc.setFont('Helvetica', 'normal');
+  const guidelines = [
+    '1. Mekanisk rengjøring av skrog',
+    '2. Kjemisk desinfeksjon (Kloroksydin eller tilsvarende)',
+    '3. Skylling med ferskvann',
+    '4. Lufttørking (minimum 24 timer)',
+    '5. Kontroll før inngang i ny sone'
+  ];
+
+  guidelines.forEach(guideline => {
+    if (yPos > pageHeight - 10) {
+      doc.addPage();
+      yPos = 10;
+    }
+    doc.text(guideline, 15, yPos);
+    yPos += 5;
+  });
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(128, 128, 128);
+  doc.text('Rapport generert av AquaShield', 15, pageHeight - 5);
+
+  const filename = `AquaShield_Båt-Rapport_${companyName}_${date.toISOString().split('T')[0]}.pdf`;
+  doc.save(filename);
+}
+
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;

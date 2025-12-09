@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
 import { useAuth } from '@/context/AuthContext';
-import { generatePDFReport } from '@/lib/pdf-report';
+import { generatePDFReport, generateVesselReport } from '@/lib/pdf-report';
 import RiskMap from '@/components/RiskMap';
 import RiskTable from '@/components/RiskTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -88,6 +88,29 @@ export default function Dashboard() {
       toast({
         title: "Feil ved generering",
         description: "Kunne ikke generere PDF-rapport",
+        duration: 3000,
+        className: "bg-red-50 border-red-200 text-red-900",
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handleGenerateVesselReport = async () => {
+    try {
+      setGeneratingPDF(true);
+      const { generateVesselReport } = await import('@/lib/pdf-report');
+      await generateVesselReport(userFilteredFarms, userFilteredVessels, user?.company || 'Din Bedrift');
+      toast({
+        title: "✓ Båt-rapport generert",
+        description: `Båt-rapport lastet ned for ${user?.company}`,
+        duration: 3000,
+        className: "bg-green-50 border-green-200 text-green-900",
+      });
+    } catch (error) {
+      toast({
+        title: "Feil ved generering",
+        description: "Kunne ikke generere båt-rapport",
         duration: 3000,
         className: "bg-red-50 border-red-200 text-red-900",
       });
@@ -232,16 +255,22 @@ export default function Dashboard() {
         </div>
 
         {/* Action Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-           {/* Admin only features - hidden for now */}
-           {/*
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
            <Button 
              onClick={handleGenerateReport} 
              disabled={generatingPDF || loading}
              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md font-semibold py-3 md:py-2 text-base md:text-sm"
            >
              <Download className={`h-4 w-4 ${generatingPDF ? 'animate-spin' : ''}`} />
-             {generatingPDF ? 'Genererer PDF...' : 'Last ned PDF-rapport'}
+             {generatingPDF ? 'Genererer...' : 'Anlegg-Rapport'}
+           </Button>
+           <Button 
+             onClick={handleGenerateVesselReport} 
+             disabled={generatingPDF || loading}
+             className="gap-2 bg-slate-600 hover:bg-slate-700 text-white shadow-md font-semibold py-3 md:py-2 text-base md:text-sm"
+           >
+             <Ship className={`h-4 w-4 ${generatingPDF ? 'animate-spin' : ''}`} />
+             {generatingPDF ? 'Genererer...' : 'Båt-Rapport'}
            </Button>
            <Button 
              onClick={handleSendEmail} 
@@ -249,9 +278,8 @@ export default function Dashboard() {
              className="gap-2 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold py-3 md:py-2 text-base md:text-sm"
            >
              <Mail className="h-4 w-4" />
-             Send Risikovarsel
+             Send Varsler
            </Button>
-           */}
         </div>
 
         {/* Map & Table Grid */}
