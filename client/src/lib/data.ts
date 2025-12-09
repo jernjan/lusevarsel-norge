@@ -55,6 +55,71 @@ export function calculateRiskScore(farm: FishFarm): number {
   return Math.min(10, Math.max(1, Math.round(score)));
 }
 
+// PREDICTIVE risk scoring – detects future infection threats
+// Considers: nearby disease, water currents, vessel traffic, algae risk
+export function calculatePredictiveRiskScore(farm: FishFarm, allFarms: FishFarm[], vessels: Vessel[]): number {
+  let score = calculateRiskScore(farm); // Current lice risk
+  
+  // +3 points if farm has disease
+  if (farm.disease) {
+    score += 3;
+    console.log(`[${farm.name}] Disease detected: ${farm.disease} +3`);
+  }
+  
+  // +2 points if in quarantine
+  if (farm.inQuarantine) score += 2;
+  
+  // +2 if algae risk (can weaken fish immunity)
+  if (farm.hasAlgaeRisk) score += 2;
+  
+  // Check NEARBY farms with disease (within ~30km = 0.27 degrees)
+  const nearbyDiseased = allFarms.filter(other => {
+    if (!other.disease || other.id === farm.id) return false;
+    const distance = Math.sqrt(
+      Math.pow(other.lat - farm.lat, 2) + 
+      Math.pow(other.lng - farm.lng, 2)
+    );
+    return distance < 0.27; // ~30km
+  });
+  
+  if (nearbyDiseased.length > 0) {
+    score += nearbyDiseased.length * 2; // +2 per nearby diseased farm
+    console.log(`[${farm.name}] ${nearbyDiseased.length} nearby diseased farms +${nearbyDiseased.length * 2}`);
+  }
+  
+  // Check if water current flows TOWARD this farm from disease sources
+  // If farm's current direction is towards a diseased farm, +2 points
+  if (farm.currentDirection !== undefined) {
+    const threatingFarms = nearbyDiseased.filter(diseased => {
+      const angleToDisease = Math.atan2(diseased.lng - farm.lng, diseased.lat - farm.lat) * (180 / Math.PI);
+      const angleDiff = Math.abs(farm.currentDirection - angleToDisease);
+      return angleDiff < 45; // Within 45° cone of current direction
+    });
+    if (threatingFarms.length > 0) {
+      score += threatingFarms.length * 1.5; // +1.5 per threatening disease source
+      console.log(`[${farm.name}] Water current flows FROM disease zones +${threatingFarms.length * 1.5}`);
+    }
+  }
+  
+  // Check for RISKY VESSEL traffic (vessels coming from critical zones)
+  const riskyVessels = vessels.filter(v => {
+    if (!v.passedRiskZone) return false;
+    const distanceToVessel = Math.sqrt(
+      Math.pow(v.lat - farm.lat, 2) + 
+      Math.pow(v.lng - farm.lng, 2)
+    );
+    return distanceToVessel < 0.27; // Within ~30km
+  });
+  
+  if (riskyVessels.length > 0) {
+    score += riskyVessels.length * 1.5; // +1.5 per risky vessel nearby
+    console.log(`[${farm.name}] ${riskyVessels.length} risky vessels nearby +${riskyVessels.length * 1.5}`);
+  }
+  
+  // Cap at 10 for critical level
+  return Math.min(10, Math.max(1, Math.round(score)));
+}
+
 // Updated Logic based on new requirements
 export function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
   if (score >= 8) return 'critical'; // Red (8-10)

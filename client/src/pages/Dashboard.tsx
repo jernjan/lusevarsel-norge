@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
+import { getLiceData, getVesselData, FishFarm, Vessel, calculateRiskScore, calculatePredictiveRiskScore, getRiskLevel, PRODUCTION_AREAS } from '@/lib/data';
 import { useAuth } from '@/context/AuthContext';
 import { generatePDFReport, generateVesselReport } from '@/lib/pdf-report';
 import RiskMap from '@/components/RiskMap';
@@ -56,18 +56,31 @@ export default function Dashboard() {
     ? vessels.filter(v => userVessels.includes(v.id) || userVessels.includes(v.name))
     : vessels;
 
-  // Calculate high-level stats based on filtered view
+  // Calculate stats based on CURRENT risk
   const highRiskCount = userFilteredFarms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical').length;
   const avgTemp = userFilteredFarms.reduce((acc, curr) => acc + curr.temp, 0) / (userFilteredFarms.length || 1);
   const totalAvgLice = userFilteredFarms.reduce((acc, curr) => acc + curr.liceCount, 0) / (userFilteredFarms.length || 1);
   const riskVesselsCount = userFilteredVessels.filter(v => v.passedRiskZone).length;
+
+  // PREDICTIVE THREAT ANALYSIS – farms at risk of future infection
+  const topPredictiveRiskFarms = userFilteredFarms
+    .map(farm => ({
+      farm,
+      predictiveScore: calculatePredictiveRiskScore(farm, userFilteredFarms, userFilteredVessels)
+    }))
+    .sort((a, b) => b.predictiveScore - a.predictiveScore)
+    .slice(0, 20);
+
+  const predictiveCriticalCount = topPredictiveRiskFarms.filter(
+    f => getRiskLevel(f.predictiveScore) === 'critical'
+  ).length;
 
   const handleSendEmail = () => {
     const currentWeek = 49; // Mock week
     
     toast({
       title: "E-post sendt! (Simulering)",
-      description: `AquaShield uke ${currentWeek}: ${highRiskCount} anlegg i rød sone sendt til abonnenter.`,
+      description: `AquaShield uke ${currentWeek}: ${predictiveCriticalCount} anlegg med høy smitterisiko varslet til abonnenter.`,
       duration: 5000,
       className: "bg-green-50 border-green-200 text-green-900",
     });
@@ -319,7 +332,7 @@ export default function Dashboard() {
             ) : (
               <div ref={mapContainerRef}>
                 <RiskMap 
-                  farms={userFilteredFarms} 
+                  farms={topPredictiveRiskFarms.map(f => f.farm)} 
                   vessels={userFilteredVessels} 
                   selectedPo={selectedPo === "all" ? null : selectedPo}
                   selectedFarm={selectedFarm}
