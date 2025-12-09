@@ -74,10 +74,11 @@ export function getRiskColor(level: 'low' | 'medium' | 'high' | 'critical'): str
 
 // Auto-offset logic for land-locked markers with aggressive county-based directions
 export function applySeaOffset(lat: number, lng: number): [number, number] {
-  // Aggressive offset to push ALL points into sea (0.004-0.008 degrees ~400-800m)
+  // MAXIMUM offset to push ALL points into sea (0.008-0.012 degrees ~800-1200m)
   // County-specific directions ensure consistent seaward push
+  // This is the strongest offset to guarantee no farms on land
   
-  let offsetScale = 0.006; // ~600m offset (increased from 0.008)
+  let offsetScale = 0.010; // ~1000m offset (increased from 0.006)
   let offsetDirection = 270; // Default: West
   
   // Fine-tuned county-based offset directions (degrees)
@@ -85,35 +86,35 @@ export function applySeaOffset(lat: number, lng: number): [number, number] {
   if (lat < 58.5) {
     // Rogaland/Hordaland - Southwest/West
     offsetDirection = 240;
-    offsetScale = 0.007;
+    offsetScale = 0.012;
   } else if (lat < 60.5) {
     // Hordaland/Sogn - West
     offsetDirection = 270;
-    offsetScale = 0.007;
+    offsetScale = 0.012;
   } else if (lat < 62.5) {
     // Sogn/Møre - Northwest
     offsetDirection = 300;
-    offsetScale = 0.007;
+    offsetScale = 0.011;
   } else if (lat < 64.0) {
     // Trøndelag Sør - Northwest
     offsetDirection = 310;
-    offsetScale = 0.006;
+    offsetScale = 0.010;
   } else if (lat < 65.5) {
     // Trøndelag Nord - North/Northwest
     offsetDirection = 320;
-    offsetScale = 0.006;
+    offsetScale = 0.010;
   } else if (lat < 68.0) {
     // Nordland - North
     offsetDirection = 350;
-    offsetScale = 0.005;
+    offsetScale = 0.009;
   } else if (lat < 70.0) {
     // Troms - North/Northeast
     offsetDirection = 20;
-    offsetScale = 0.005;
+    offsetScale = 0.009;
   } else {
     // Finnmark - Northeast
     offsetDirection = 45;
-    offsetScale = 0.004;
+    offsetScale = 0.008;
   }
   
   // Add deterministic variation based on coordinates to avoid grid pattern

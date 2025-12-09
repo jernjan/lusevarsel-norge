@@ -125,7 +125,7 @@ export async function generatePDFReport(
   
   const topFarms = farms.slice(0, 20);
   const colX = [15, 60, 100, 130, 160];
-  const colWidths = [45, 40, 30, 30, 20];
+  const colWidths = [45, 40, 25, 25, 20];
   
   // Header row
   doc.setFont('Helvetica', 'bold');
@@ -135,9 +135,11 @@ export async function generatePDFReport(
   doc.rect(colX[1], yPos - 4, colWidths[1], 5, 'F');
   doc.text('Lokalitet', colX[1] + 2, yPos);
   doc.rect(colX[2], yPos - 4, colWidths[2], 5, 'F');
-  doc.text('Lus', colX[2] + 2, yPos);
+  doc.text('Lusnivå', colX[2] + 2, yPos);
   doc.rect(colX[3], yPos - 4, colWidths[3], 5, 'F');
-  doc.text('Risiko', colX[3] + 2, yPos);
+  doc.text('Sykdommer', colX[3] + 2, yPos);
+  doc.rect(colX[4], yPos - 4, colWidths[4], 5, 'F');
+  doc.text('Risiko', colX[4] + 2, yPos);
   
   yPos += 6;
   doc.setFont('Helvetica', 'normal');
@@ -166,8 +168,9 @@ export async function generatePDFReport(
     doc.text(`${idx + 1}. ${farm.name.substring(0, 25)}`, colX[0] + 1, yPos);
     doc.text(farm.id, colX[1] + 1, yPos);
     doc.text(`${farm.liceCount.toFixed(2)}`, colX[2] + 1, yPos);
+    doc.text(farm.disease || '-', colX[3] + 1, yPos);
     doc.setFont('Helvetica', 'bold');
-    doc.text(levelText, colX[3] + 1, yPos);
+    doc.text(levelText, colX[4] + 1, yPos);
     doc.setFont('Helvetica', 'normal');
 
     yPos += 5;
@@ -229,8 +232,9 @@ export async function generatePDFReport(
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
-  doc.text('Denne rapporten ble generert automatisk av AquaShield – Profesjonell overvåking av lakselus', 15, pageHeight - 10);
+  doc.text('Denne rapporten ble generert automatisk av AquaShield – Overvåking og spredningsreduksjon', 15, pageHeight - 10);
   doc.text(`Kilde: BarentsWatch API, Fiskeridirektoratet`, 15, pageHeight - 5);
+  doc.text(`Merknad: Risiko kan være sykdomsrelatert, ikke kun lus`, 15, pageHeight - 1);
 
   // Save PDF
   const filename = `AquaShield_Rapport_${companyName}_${date.toISOString().split('T')[0]}.pdf`;

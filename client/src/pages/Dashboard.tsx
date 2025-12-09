@@ -130,7 +130,7 @@ export default function Dashboard() {
             </div>
             <div>
                <h1 className="text-2xl font-display font-black text-white leading-none tracking-tight">AquaShield</h1>
-               <span className="text-[9px] text-blue-100 font-bold uppercase tracking-widest">Profesjonell overvåking og spredningsreduksjon</span>
+               <span className="text-[9px] text-blue-100 font-bold uppercase tracking-widest">Overvåking og spredningsreduksjon</span>
             </div>
           </div>
           

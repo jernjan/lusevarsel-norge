@@ -30,7 +30,8 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
             <TableHead>Anlegg</TableHead>
             <TableHead>PO</TableHead>
             <TableHead className="text-right">Score</TableHead>
-            <TableHead className="text-right">Lus</TableHead>
+            <TableHead className="text-right">Lusnivå</TableHead>
+            <TableHead className="text-center">Sykdommer</TableHead>
             <TableHead className="text-center">Alge</TableHead>
             <TableHead>Status / Spredningsrisiko</TableHead>
           </TableRow>
@@ -71,6 +72,15 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
                 </TableCell>
                 <TableCell className="text-right font-mono text-slate-600">
                   {farm.liceCount.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-center">
+                  {farm.disease ? (
+                    <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 text-[10px] px-2 py-1 font-bold">
+                      {farm.disease} 🦠
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   {farm.hasAlgaeRisk ? (

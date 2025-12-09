@@ -51,6 +51,12 @@ export default function RiskMap({ farms, vessels, selectedPo, selectedFarm }: Ri
     }
   };
 
+  // Get current direction for marker offset (push arrow/wind indicator away from marker)
+  const getCurrentDirection = (farm: FishFarm): number => {
+    // Use farm's current direction if available, otherwise default to SE for visibility
+    return farm.currentDirection || 135; // SE (135°) is most readable
+  };
+
   // Smart filtering: 
   // - At zoom < 6: only show high-risk farms (score >= 8)
   // - At zoom >= 6: show all farms
