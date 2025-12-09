@@ -226,8 +226,53 @@ export const mockVessels: Vessel[] = Array.from({ length: 15 }, (_, i) => {
   };
 });
 
+// Cache management for API data (1-hour TTL)
+const CACHE_KEY = 'aquashield_farms_cache';
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+
+interface CachedData {
+  data: FishFarm[];
+  timestamp: number;
+}
+
+function getCachedFarms(): FishFarm[] | null {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    
+    const { data, timestamp }: CachedData = JSON.parse(cached);
+    const now = Date.now();
+    
+    // Check if cache is still valid (less than 1 hour old)
+    if (now - timestamp < CACHE_TTL) {
+      console.log(`✓ Bruker cached data (${data.length} anlegg, ${Math.round((now - timestamp) / 1000)}s gammel)`);
+      return data;
+    }
+  } catch (error) {
+    console.warn('Cache read error:', error);
+  }
+  return null;
+}
+
+function setCachedFarms(farms: FishFarm[]): void {
+  try {
+    const cacheData: CachedData = {
+      data: farms,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    console.log(`✓ Lagret ${farms.length} anlegg i cache`);
+  } catch (error) {
+    console.warn('Cache write error:', error);
+  }
+}
+
 // Function to fetch real data with fallback - now fetches ALL ~1100 localities
 export async function getLiceData(): Promise<FishFarm[]> {
+  // Check cache first
+  const cached = getCachedFarms();
+  if (cached) return cached;
+  
   try {
     // Fetch ALL localities from BarentsWatch API – no limits, no pagination
     const response = await fetch("https://www.barentswatch.no/bwapi/v2/fishhealth/lice");
@@ -243,7 +288,7 @@ export async function getLiceData(): Promise<FishFarm[]> {
     console.log(`✓ Hentet ${items.length} anlegg fra BarentsWatch API`);
     
     // Transform real data only – NO MOCK
-    return items
+    const farms = items
       .filter((item: any) => item.latitude && item.longitude && item.localityNo)
       .map((item: any) => {
           // Apply enhanced sea offset to real data
@@ -272,9 +317,28 @@ export async function getLiceData(): Promise<FishFarm[]> {
           };
       })
       .sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
+    
+    // Cache the data for 1 hour
+    setCachedFarms(farms);
+    
+    return farms;
   } catch (error) {
-    console.error("✗ Feil ved API-henting – bruker fallback data", error);
-    // Fallback: 100 mock anlegg (ikke 200+)
+    console.error("✗ Feil ved API-henting – prøver cache...", error);
+    
+    // Try to use cached data even if expired
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data } = JSON.parse(cached) as CachedData;
+        console.log(`✓ Bruker expired cache (${data.length} anlegg fra tidligere henting)`);
+        return data;
+      }
+    } catch (cacheError) {
+      console.warn('Cache fallback failed:', cacheError);
+    }
+    
+    // Final fallback: limited mock data if everything fails
+    console.log(`✗ Cache ikke tilgjengelig, bruker ${mockFarms.length} mock-anlegg som siste fallback`);
     return mockFarms.slice(0, 100).sort((a, b) => calculateRiskScore(b) - calculateRiskScore(a));
   }
 }
