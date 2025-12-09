@@ -165,6 +165,8 @@ export async function generatePDFReport(
       doc.rect(15, yPos - 4, pageWidth - 30, 5, 'F');
     }
 
+    // Ensure text color is dark for readability
+    doc.setTextColor(0, 0, 0);
     doc.text(`${idx + 1}. ${farm.name.substring(0, 25)}`, colX[0] + 1, yPos);
     doc.text(farm.id, colX[1] + 1, yPos);
     doc.text(`${farm.liceCount.toFixed(2)}`, colX[2] + 1, yPos);
@@ -177,6 +179,49 @@ export async function generatePDFReport(
   });
 
   yPos += 5;
+
+  // Section: Farms at risk within 10km
+  const highRiskFarms = farms.filter(f => getRiskLevel(calculateRiskScore(f)) === 'critical');
+  const farmsAtRisk = farms.filter(farm => {
+    return highRiskFarms.some(highRisk => {
+      const distance = Math.sqrt(
+        Math.pow(highRisk.lat - farm.lat, 2) + 
+        Math.pow(highRisk.lng - farm.lng, 2)
+      );
+      return distance < 0.09 && distance > 0; // ~10km zone
+    });
+  });
+
+  if (farmsAtRisk.length > 0) {
+    if (yPos > pageHeight - 40) {
+      doc.addPage();
+      yPos = 10;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(220, 100, 0);
+    doc.text('⚠ Anlegg i faresone (innenfor 10 km fra kritisk-risiko områder)', 15, yPos);
+    yPos += 7;
+    
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    doc.text(`${farmsAtRisk.length} anlegg er i potensiel smittefare:`, 15, yPos);
+    yPos += 5;
+    
+    farmsAtRisk.slice(0, 15).forEach((farm, idx) => {
+      if (yPos > pageHeight - 10) {
+        doc.addPage();
+        yPos = 10;
+      }
+      doc.text(`${idx + 1}. ${farm.name} – Lus: ${farm.liceCount.toFixed(2)}, Risiko: ${calculateRiskScore(farm)}/10`, 20, yPos);
+      yPos += 4;
+    });
+    
+    yPos += 3;
+  }
 
   // Warnings and alerts
   const farmswithDisease = farms.filter(f => f.disease);
@@ -229,6 +274,71 @@ export async function generatePDFReport(
     }
   }
 
+  // Vessel disease tracking section
+  const diseasedFarms = farms.filter(f => f.disease && f.disease.length > 0);
+  const riskyVessels = vessels.filter(v => v.passedRiskZone);
+  
+  if (riskyVessels.length > 0 && diseasedFarms.length > 0) {
+    if (yPos > pageHeight - 50) {
+      doc.addPage();
+      yPos = 10;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(220, 38, 38);
+    doc.text('⚠ Båter som kan bære sykdom', 15, yPos);
+    yPos += 7;
+    
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    let vesselTracked = 0;
+    riskyVessels.forEach(vessel => {
+      if (yPos > pageHeight - 15) {
+        doc.addPage();
+        yPos = 10;
+      }
+      
+      // Find diseased farms within 30km (0.27 degrees)
+      const nearbyDiseased = diseasedFarms.filter(farm => {
+        const distance = Math.sqrt(
+          Math.pow(farm.lat - vessel.lat, 2) + 
+          Math.pow(farm.lng - vessel.lng, 2)
+        );
+        return distance < 0.27; // ~30km zone
+      });
+      
+      if (nearbyDiseased.length > 0) {
+        const diseases = [...new Set(nearbyDiseased.map(f => f.disease).filter(Boolean))];
+        doc.setTextColor(220, 38, 38);
+        doc.setFont('Helvetica', 'bold');
+        doc.text(`🚢 ${vessel.name} (${vessel.type})`, 15, yPos);
+        yPos += 4;
+        
+        doc.setTextColor(200, 0, 0);
+        doc.setFont('Helvetica', 'normal');
+        doc.text(`  Kan bære: ${diseases.join(', ')}`, 20, yPos);
+        yPos += 4;
+        
+        doc.setTextColor(0, 0, 0);
+        doc.text(`  Fra ${nearbyDiseased.length} nærliggende anlegg`, 20, yPos);
+        yPos += 5;
+        
+        vesselTracked++;
+      }
+    });
+    
+    if (vesselTracked > 0) {
+      yPos += 2;
+      doc.setFontSize(8);
+      doc.setTextColor(100, 0, 0);
+      doc.text('⚠ OBLIGATORISK: Desinfeksjon før besøk til friske anlegg!', 15, yPos);
+      yPos += 5;
+    }
+  }
+
   // Desinfection protocols section
   if (yPos > pageHeight - 60) {
     doc.addPage();
@@ -237,6 +347,7 @@ export async function generatePDFReport(
   
   doc.setFontSize(12);
   doc.setFont('Helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
   doc.text('Desinfeksjonsprotokoller og Risikovurdering', 15, yPos);
   yPos += 8;
   
