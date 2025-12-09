@@ -221,7 +221,7 @@ const LOCATIONS = [
 
 const DISEASES = ['PD', 'ILA', 'IPN', null, null, null, null, null];
 
-export const mockFarms: FishFarm[] = Array.from({ length: 60 }, (_, i) => {
+export const mockFarms: FishFarm[] = Array.from({ length: 200 }, (_, i) => {
   const baseLoc = LOCATIONS[i % LOCATIONS.length];
   
   // Randomized spread

@@ -229,12 +229,47 @@ export async function generatePDFReport(
     }
   }
 
+  // Desinfection protocols section
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 10;
+  }
+  
+  doc.setFontSize(12);
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Desinfeksjonsprotokoller og Risikovurdering', 15, yPos);
+  yPos += 8;
+  
+  doc.setFontSize(10);
+  doc.setFont('Helvetica', 'normal');
+  doc.text('For hvert fartøy med høy risiko, anbefal:', 15, yPos);
+  yPos += 6;
+  
+  doc.setFontSize(9);
+  const recommendations = [
+    '• Desinfeksjon av skrog og dekk med 200 ppm klor',
+    '• Bytte av brønnvann før besøk til kritiske anlegg',
+    '• Visuell inspeksjon for lus på kjøp/salg av fisk',
+    '• Karantene 7-14 dager ved mistanke om sykdom',
+    '• Blodprøver av fisk hvis båten har vært i sykdomszone'
+  ];
+  
+  recommendations.forEach(rec => {
+    if (yPos > pageHeight - 10) {
+      doc.addPage();
+      yPos = 10;
+    }
+    doc.text(rec, 20, yPos);
+    yPos += 5;
+  });
+  
+  yPos += 5;
+  
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
   doc.text('Denne rapporten ble generert automatisk av AquaShield – Overvåking og spredningsreduksjon', 15, pageHeight - 10);
   doc.text(`Kilde: BarentsWatch API, Fiskeridirektoratet`, 15, pageHeight - 5);
-  doc.text(`Merknad: Risiko kan være sykdomsrelatert, ikke kun lus`, 15, pageHeight - 1);
 
   // Save PDF
   const filename = `AquaShield_Rapport_${companyName}_${date.toISOString().split('T')[0]}.pdf`;

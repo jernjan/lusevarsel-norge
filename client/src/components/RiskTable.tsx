@@ -25,15 +25,15 @@ export default function RiskTable({ farms, onFarmClick }: RiskTableProps) {
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead className="w-[40px]">#</TableHead>
-            <TableHead>Anlegg</TableHead>
-            <TableHead>PO</TableHead>
-            <TableHead className="text-right">Score</TableHead>
-            <TableHead className="text-right">Lusnivå</TableHead>
-            <TableHead className="text-center">Sykdommer</TableHead>
-            <TableHead className="text-center">Alge</TableHead>
-            <TableHead>Status / Spredningsrisiko</TableHead>
+          <TableRow className="bg-slate-100 border-b-2 border-slate-300">
+            <TableHead className="w-[40px] text-slate-900 font-bold">#</TableHead>
+            <TableHead className="text-slate-900 font-bold">Anlegg</TableHead>
+            <TableHead className="text-slate-900 font-bold">PO</TableHead>
+            <TableHead className="text-right text-slate-900 font-bold">Score</TableHead>
+            <TableHead className="text-right text-slate-900 font-bold">Lusnivå</TableHead>
+            <TableHead className="text-center text-slate-900 font-bold">Sykdommer</TableHead>
+            <TableHead className="text-center text-slate-900 font-bold">Alge</TableHead>
+            <TableHead className="text-slate-900 font-bold">Status / Spredningsrisiko</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
